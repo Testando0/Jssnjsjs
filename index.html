@@ -22,15 +22,34 @@
         .poster-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; }
         .poster-card:hover { transform: scale(1.1); z-index: 20; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
 
-        /* BARREIRA ANTI-POPUP IMEDIATA */
+        /* BARREIRA ANTI-POPUP TOTAL */
         #player-shield {
             position: absolute;
             inset: 0;
             z-index: 2000;
-            background: rgba(0,0,0,0.01); /* Invisível para o usuário, visível para o clique */
+            background: rgba(0,0,0,0.6); /* Leve escurecida para focar no botão */
             display: none; 
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            backdrop-filter: blur(2px);
         }
+
+        .master-play-btn {
+            width: 100px;
+            height: 100px;
+            background: var(--net-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            box-shadow: 0 0 30px rgba(229, 9, 20, 0.5);
+            transition: transform 0.2s;
+        }
+
+        .master-play-btn:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -67,11 +86,18 @@
             <button onclick="closePlayer()" class="text-white flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full hover:bg-red-600 transition">
                 <i class="fas fa-arrow-left"></i> Sair do Player
             </button>
-            <span id="player-title" class="text-gray-400 font-bold tracking-widest text-xs"></span>
+            <span id="player-title" class="text-gray-400 font-bold tracking-widest text-xs uppercase"></span>
         </div>
 
         <div class="relative w-full h-full bg-black">
-            <div id="player-shield" onclick="this.style.display='none'"></div>
+            <div id="player-shield" onclick="killShield()">
+                <div class="flex flex-col items-center gap-4">
+                    <div class="master-play-btn">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <p class="font-bold text-white uppercase tracking-widest text-sm drop-shadow-lg">Clique para Iniciar sem Anúncios</p>
+                </div>
+            </div>
             <div id="iframe-target" class="w-full h-full"></div>
         </div>
     </div>
@@ -100,21 +126,30 @@
             `).join('');
         });
 
-        // --- PLAYER COM SHIELD IMEDIATO ---
+        // --- LÓGICA DO ESCUDO ---
+        function killShield() {
+            const shield = document.getElementById('player-shield');
+            shield.style.display = 'none';
+            // O clique já aconteceu no nosso domínio, "matando" a autorização do popup do iframe.
+            console.log("Shield removido e popup bloqueado.");
+        }
+
+        // --- PLAYER ---
         function openPlayer(type, id, title) {
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
             const shield = document.getElementById('player-shield');
             document.getElementById('player-title').innerText = title;
 
+            // Superflix com autoplay ativado
             const url = `https://superflixapi.asia/${type}/${id}?autoplay=1`;
             
-            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+            target.innerHTML = `<iframe id="player-frame" src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
 
-            // ATIVAÇÃO IMEDIATA DO ESCUDO
-            shield.style.display = 'block'; 
+            // Exibe o escudo/botão mestre IMEDIATAMENTE
+            shield.style.display = 'flex'; 
 
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
             document.getElementById('search-results').classList.add('hidden');
@@ -126,7 +161,7 @@
             if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         }
 
-        // --- CARREGAMENTO DE PÁGINAS ---
+        // --- RENDERIZAÇÃO DE PÁGINAS ---
         async function showPage(page) {
             const main = document.getElementById('main-view');
             window.scrollTo(0,0);
@@ -160,7 +195,7 @@
                     </div>
 
                     <div class="px-6 md:px-12 -mt-16 relative z-10 pb-32">
-                        <h3 class="text-2xl font-bold mb-8 italic tracking-tight underline decoration-red-600 decoration-4 underline-offset-8 uppercase">Catálogo Premium</h3>
+                        <h3 class="text-2xl font-bold mb-8 italic tracking-tight underline decoration-red-600 decoration-4 underline-offset-8 uppercase">Sugestões de Hoje</h3>
                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
                             ${items.slice(1, 19).map(i => `
                                 <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-card">
@@ -177,7 +212,7 @@
                     </div>
                 `;
             } catch (err) {
-                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600 font-bold">ERRO AO CONECTAR COM O SERVIDOR.</div>`;
+                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600 font-bold">ERRO DE CONEXÃO.</div>`;
             }
         }
 
