@@ -11,57 +11,57 @@
         @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
         body { background-color: #141414; color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
         
-        /* BARREIRA INVISÍVEL ANTI-POPUP */
-        #player-shield {
-            position: absolute;
-            inset: 0;
-            z-index: 5000;
-            background: rgba(0,0,0,0.01); /* Quase invisível */
-            display: none;
-            cursor: pointer;
+        .hero-vignette { 
+            background: linear-gradient(to top, #141414 5%, transparent 60%),
+                        linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 100%); 
         }
 
-        .hero-vignette { background: linear-gradient(to top, #141414 10%, transparent 70%); }
         .poster-card { transition: transform 0.3s ease; cursor: pointer; }
-        .poster-card:hover { transform: scale(1.05); z-index: 10; }
-        
-        /* Loading Spinner */
-        .spinner { width: 40px; height: 40px; border: 4px solid #E50914; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .poster-card:hover { transform: scale(1.05); }
+
+        /* Iframe ocupa tudo */
+        #iframe-target iframe { border: none; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-[100] bg-black/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <h1 class="text-red-600 text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative">
-            <input id="search-input" type="text" placeholder="Buscar filmes ou séries..." 
-                class="bg-zinc-800 border border-white/10 rounded-full py-2 px-6 text-sm w-64 outline-none focus:border-red-600 transition-all">
-            <div id="search-results" class="absolute top-12 right-0 w-[320px] bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110]"></div>
+    <nav class="fixed top-0 w-full z-[100] bg-black/90 backdrop-blur-md px-4 md:px-12 py-3 flex items-center justify-between">
+        <h1 class="text-red-600 text-2xl md:text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
+        <div class="relative w-full max-w-[180px] md:max-w-md ml-4">
+            <input id="search-input" type="text" placeholder="Buscar..." 
+                class="bg-zinc-800 border border-white/10 rounded-full py-1.5 px-4 md:px-6 text-sm w-full outline-none focus:border-red-600 transition-all">
+            <div id="search-results" class="absolute top-12 right-0 w-[280px] md:w-[350px] bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110]"></div>
         </div>
     </nav>
 
-    <main id="main-view" class="pt-0">
-        <div class="h-screen flex items-center justify-center"><div class="spinner"></div></div>
+    <main id="main-view" class="min-h-screen">
+        <div class="h-screen flex items-center justify-center"><div class="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div></div>
     </main>
 
     <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[5100]">
-            <button onclick="closePlayer()" class="text-white bg-red-600 px-6 py-2 rounded-full font-bold hover:bg-red-700 transition shadow-xl">
-                <i class="fas fa-arrow-left mr-2"></i> VOLTAR
+        <div class="w-full p-4 flex justify-between items-center bg-zinc-900">
+            <button onclick="closePlayer()" class="text-white bg-red-600 px-5 py-2 rounded-lg font-bold flex items-center gap-2">
+                <i class="fas fa-times"></i> <span>Fechar</span>
             </button>
-            <div class="bg-black/50 px-4 py-2 rounded-full text-xs text-gray-400">Proteção Anti-Popup Ativa</div>
+            <span class="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Modo Seguro Ativado</span>
         </div>
-
-        <div class="relative w-full h-full">
-            <div id="player-shield" onclick="this.style.display='none'"></div>
-            <div id="iframe-target" class="w-full h-full"></div>
-        </div>
+        <div id="iframe-target" class="flex-grow w-full bg-black"></div>
     </div>
 
     <script>
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
         const BASE_URL = 'https://api.themoviedb.org/3';
+        let isPlayerOpen = false;
+
+        // --- ANTI-POPUP POR FOCO ---
+        // Se o player tentar abrir uma aba, o site "puxa" o foco de volta na hora
+        window.addEventListener('blur', function() {
+            if (isPlayerOpen) {
+                setTimeout(function() {
+                    window.focus();
+                }, 100);
+            }
+        });
 
         // --- BUSCA ---
         document.getElementById('search-input').addEventListener('input', async (e) => {
@@ -72,44 +72,39 @@
             const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
             const data = await res.json();
             resBox.classList.remove('hidden');
-            resBox.innerHTML = data.results.slice(0, 6).map(i => `
-                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-white/10 flex gap-4 cursor-pointer border-b border-white/5">
-                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-12 h-16 object-cover rounded shadow">
-                    <div class="flex flex-col justify-center">
-                        <p class="font-bold text-sm">${i.title || i.name}</p>
-                        <p class="text-xs text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
+            resBox.innerHTML = data.results.slice(0, 5).map(i => `
+                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-white/10 flex gap-3 cursor-pointer border-b border-white/5">
+                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow">
+                    <div class="flex flex-col justify-center overflow-hidden">
+                        <p class="font-bold text-xs truncate">${i.title || i.name}</p>
                     </div>
                 </div>
             `).join('');
         });
 
-        // --- PLAYER COM PROTEÇÃO ---
+        // --- PLAYER ---
         function openPlayer(type, id) {
+            isPlayerOpen = true;
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
-            const shield = document.getElementById('player-shield');
             
-            // Força autoplay via parâmetro e carrega o iframe
-            const url = `https://superflixapi.asia/${type}/${id}?autoplay=1`;
-            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
-            
+            target.innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
+            document.body.style.overflow = 'hidden';
             
-            // ATIVA A PROTEÇÃO: O próximo clique em qualquer lugar da tela vai apenas fechar essa barreira
-            shield.style.display = 'block';
-
-            document.getElementById('search-results').classList.add('hidden');
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            // Tenta forçar o foco para a nossa janela
+            window.focus();
         }
 
         function closePlayer() {
+            isPlayerOpen = false;
             document.getElementById('iframe-target').innerHTML = '';
             document.getElementById('player-overlay').classList.add('hidden');
-            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            document.body.style.overflow = 'auto';
         }
 
-        // --- CARREGAMENTO INICIAL ---
+        // --- HOME ---
         async function loadHome() {
             const main = document.getElementById('main-view');
             try {
@@ -119,27 +114,25 @@
                 const hero = items[0];
 
                 main.innerHTML = `
-                    <div class="relative h-[80vh] w-full">
-                        <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-8 md:p-16">
-                            <h2 class="text-5xl md:text-7xl font-black uppercase italic drop-shadow-2xl mb-6">${hero.title || hero.name}</h2>
+                    <div class="relative h-[50vh] md:h-[80vh] w-full">
+                        <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
+                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-16">
+                            <h2 class="text-3xl md:text-6xl font-black uppercase italic mb-4">${hero.title || hero.name}</h2>
                             <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" 
-                                class="bg-red-600 hover:bg-red-700 text-white px-12 py-4 rounded-md font-black w-fit transition-all hover:scale-110 flex items-center gap-3">
-                                <i class="fas fa-play"></i> ASSISTIR AGORA
+                                class="bg-red-600 text-white px-8 py-3 rounded-md font-bold w-fit active:scale-95 transition-transform">
+                                ASSISTIR AGORA
                             </button>
                         </div>
                     </div>
-                    <div class="p-8 md:p-16 -mt-20 relative z-10 grid grid-cols-2 md:grid-cols-5 gap-8">
-                        ${items.slice(1, 16).map(i => `
+                    <div class="px-4 md:px-12 py-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                        ${items.slice(1, 13).map(i => `
                             <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="poster-card">
-                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-xl shadow-2xl border border-white/10">
-                                <p class="mt-3 text-sm font-bold truncate text-gray-300">${i.title || i.name}</p>
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg border border-white/5">
+                                <p class="mt-2 text-[10px] md:text-xs font-bold truncate opacity-80 uppercase">${i.title || i.name}</p>
                             </div>
                         `).join('')}
                     </div>`;
-            } catch (e) {
-                main.innerHTML = `<div class="h-screen flex items-center justify-center">Erro ao carregar catálogo.</div>`;
-            }
+            } catch (e) { console.log(e); }
         }
 
         loadHome();
