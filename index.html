@@ -9,79 +9,52 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
-        :root { --net-red: #E50914; --net-black: #141414; }
-        body { background-color: var(--net-black); color: white; font-family: 'Martel Sans', sans-serif; }
+        body { background-color: #141414; color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
         
-        /* SHIELD ANTI-POPUP MELHORADO */
+        /* BARREIRA INVISÍVEL ANTI-POPUP */
         #player-shield {
             position: absolute;
             inset: 0;
-            z-index: 2000;
-            background: rgba(0,0,0,0.7);
-            display: none; 
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            z-index: 5000;
+            background: rgba(0,0,0,0.01); /* Quase invisível */
+            display: none;
             cursor: pointer;
-            backdrop-filter: blur(8px);
         }
 
-        .master-play-btn {
-            width: 80px;
-            height: 80px;
-            background: var(--net-red);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            box-shadow: 0 0 30px rgba(229, 9, 20, 0.5);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(229, 9, 20, 0); }
-            100% { transform: scale(1); }
-        }
-
-        .hero-vignette { background: linear-gradient(to top, var(--net-black) 10%, transparent 60%); }
+        .hero-vignette { background: linear-gradient(to top, #141414 10%, transparent 70%); }
+        .poster-card { transition: transform 0.3s ease; cursor: pointer; }
+        .poster-card:hover { transform: scale(1.05); z-index: 10; }
+        
+        /* Loading Spinner */
+        .spinner { width: 40px; height: 40px; border: 4px solid #E50914; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-[100] bg-gradient-to-b from-black/80 to-transparent px-6 py-4 flex items-center justify-between">
+    <nav class="fixed top-0 w-full z-[100] bg-black/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
         <h1 class="text-red-600 text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        
-        <div class="flex items-center gap-4">
-            <div class="relative">
-                <input id="search-input" type="text" placeholder="Pesquisar..." 
-                    class="bg-black/60 border border-white/20 rounded-full py-2 px-5 text-sm w-40 md:w-64 outline-none focus:border-red-600 transition-all">
-                <button id="search-btn" class="absolute right-3 top-2.5 text-gray-400 hover:text-white">
-                    <i class="fas fa-search"></i>
-                </button>
-                <div id="search-results" class="absolute top-14 right-0 w-[300px] bg-zinc-900 rounded-lg shadow-2xl hidden overflow-hidden border border-white/10"></div>
-            </div>
+        <div class="relative">
+            <input id="search-input" type="text" placeholder="Buscar filmes ou séries..." 
+                class="bg-zinc-800 border border-white/10 rounded-full py-2 px-6 text-sm w-64 outline-none focus:border-red-600 transition-all">
+            <div id="search-results" class="absolute top-12 right-0 w-[320px] bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110]"></div>
         </div>
     </nav>
 
-    <main id="main-view" class="pt-20"></main>
+    <main id="main-view" class="pt-0">
+        <div class="h-screen flex items-center justify-center"><div class="spinner"></div></div>
+    </main>
 
     <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[2100]">
-            <button onclick="closePlayer()" class="text-white bg-red-600 px-6 py-2 rounded-full font-bold shadow-lg">
-                <i class="fas fa-times mr-2"></i> FECHAR PLAYER
+        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[5100]">
+            <button onclick="closePlayer()" class="text-white bg-red-600 px-6 py-2 rounded-full font-bold hover:bg-red-700 transition shadow-xl">
+                <i class="fas fa-arrow-left mr-2"></i> VOLTAR
             </button>
-            <button onclick="activateShield()" class="text-white bg-white/10 px-4 py-2 rounded-full text-xs hover:bg-white/20">
-                <i class="fas fa-shield-alt mr-1"></i> TRAVAR CLIQUES (ANTI-ADS)
-            </button>
+            <div class="bg-black/50 px-4 py-2 rounded-full text-xs text-gray-400">Proteção Anti-Popup Ativa</div>
         </div>
 
         <div class="relative w-full h-full">
-            <div id="player-shield" onclick="this.style.display='none'">
-                <div class="master-play-btn"><i class="fas fa-play"></i></div>
-                <p class="mt-4 font-bold text-white uppercase tracking-widest text-xs">O Clique agora está protegido</p>
-            </div>
+            <div id="player-shield" onclick="this.style.display='none'"></div>
             <div id="iframe-target" class="w-full h-full"></div>
         </div>
     </div>
@@ -90,87 +63,83 @@
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
         const BASE_URL = 'https://api.themoviedb.org/3';
 
-        // --- CORREÇÃO DA BUSCA ---
-        const searchInput = document.getElementById('search-input');
-        const searchBtn = document.getElementById('search-btn');
-
-        async function performSearch() {
-            const query = searchInput.value;
+        // --- BUSCA ---
+        document.getElementById('search-input').addEventListener('input', async (e) => {
+            const query = e.target.value;
             const resBox = document.getElementById('search-results');
-            if (query.length < 3) return;
+            if (query.length < 3) { resBox.classList.add('hidden'); return; }
 
             const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
             const data = await res.json();
-            
             resBox.classList.remove('hidden');
-            resBox.innerHTML = data.results.slice(0, 5).map(i => `
-                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-red-600 flex gap-3 cursor-pointer border-b border-white/5">
-                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover">
-                    <div class="text-xs">
-                        <p class="font-bold">${i.title || i.name}</p>
-                        <p class="opacity-60">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
+            resBox.innerHTML = data.results.slice(0, 6).map(i => `
+                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-white/10 flex gap-4 cursor-pointer border-b border-white/5">
+                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-12 h-16 object-cover rounded shadow">
+                    <div class="flex flex-col justify-center">
+                        <p class="font-bold text-sm">${i.title || i.name}</p>
+                        <p class="text-xs text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
                     </div>
                 </div>
             `).join('');
-        }
+        });
 
-        searchInput.addEventListener('input', performSearch);
-        searchBtn.addEventListener('click', () => searchInput.focus());
-
-        // --- PLAYER COM CONTROLE DE SHIELD ---
+        // --- PLAYER COM PROTEÇÃO ---
         function openPlayer(type, id) {
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
             const shield = document.getElementById('player-shield');
-
-            const url = `https://superflixapi.asia/${type}/${id}`;
-            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allowfullscreen></iframe>`;
+            
+            // Força autoplay via parâmetro e carrega o iframe
+            const url = `https://superflixapi.asia/${type}/${id}?autoplay=1`;
+            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
             
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
-            shield.style.display = 'none'; // Começa aberto para você escolher Dub/Leg
+            
+            // ATIVA A PROTEÇÃO: O próximo clique em qualquer lugar da tela vai apenas fechar essa barreira
+            shield.style.display = 'block';
 
-            // Após 5 segundos (tempo de escolher o áudio), o escudo sobe automático para proteger o play final
-            setTimeout(() => {
-                activateShield();
-            }, 6000);
-        }
-
-        function activateShield() {
-            document.getElementById('player-shield').style.display = 'flex';
+            document.getElementById('search-results').classList.add('hidden');
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
         }
 
         function closePlayer() {
             document.getElementById('iframe-target').innerHTML = '';
             document.getElementById('player-overlay').classList.add('hidden');
-            document.getElementById('player-shield').style.display = 'none';
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         }
 
         // --- CARREGAMENTO INICIAL ---
         async function loadHome() {
             const main = document.getElementById('main-view');
             try {
-                const res = await fetch(`${BASE_URL}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
+                const res = await fetch(`${BASE_URL}/trending/all/day?api_key=${API_KEY}&language=pt-BR`);
                 const data = await res.json();
-                const hero = data.results[0];
+                const items = data.results;
+                const hero = items[0];
 
                 main.innerHTML = `
-                    <div class="relative h-[60vh] mb-10 overflow-hidden rounded-3xl mx-6">
+                    <div class="relative h-[80vh] w-full">
                         <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-10">
-                            <h2 class="text-5xl font-black uppercase italic">${hero.title || hero.name}</h2>
-                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" class="mt-4 bg-red-600 w-fit px-8 py-3 rounded-full font-bold">ASSISTIR AGORA</button>
+                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-8 md:p-16">
+                            <h2 class="text-5xl md:text-7xl font-black uppercase italic drop-shadow-2xl mb-6">${hero.title || hero.name}</h2>
+                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-12 py-4 rounded-md font-black w-fit transition-all hover:scale-110 flex items-center gap-3">
+                                <i class="fas fa-play"></i> ASSISTIR AGORA
+                            </button>
                         </div>
                     </div>
-                    <div class="px-8 grid grid-cols-2 md:grid-cols-5 gap-6">
-                        ${data.results.slice(1, 11).map(i => `
-                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="cursor-pointer group">
-                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg group-hover:scale-105 transition-transform duration-300">
-                                <p class="mt-2 text-sm font-bold truncate">${i.title || i.name}</p>
+                    <div class="p-8 md:p-16 -mt-20 relative z-10 grid grid-cols-2 md:grid-cols-5 gap-8">
+                        ${items.slice(1, 16).map(i => `
+                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="poster-card">
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-xl shadow-2xl border border-white/10">
+                                <p class="mt-3 text-sm font-bold truncate text-gray-300">${i.title || i.name}</p>
                             </div>
                         `).join('')}
                     </div>`;
-            } catch (e) { console.error("Erro ao carregar:", e); }
+            } catch (e) {
+                main.innerHTML = `<div class="h-screen flex items-center justify-center">Erro ao carregar catálogo.</div>`;
+            }
         }
 
         loadHome();
