@@ -517,24 +517,24 @@
             
             const url = `https://superflixapi.asia/${type}/${id}`;
             
-            // 1. Fullscreen
+            // 1. Fullscreen Automático
             const elem = document.documentElement;
             if (elem.requestFullscreen) {
                 await elem.requestFullscreen().catch(err => console.log("Erro fullscreen:", err));
+            } else if (elem.webkitRequestFullscreen) { /* Safari */
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE11 */
+                elem.msRequestFullscreen();
             }
 
-            // 2. Iframe Seguro
+            // 2. Iframe Seguro (SEM SANDBOX conforme solicitado)
             const iframe = document.createElement('iframe');
             iframe.src = url;
             iframe.width = "100%";
             iframe.height = "100%";
             iframe.frameBorder = "0";
             iframe.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
-            
-            // Sandbox agressivo contra popups
-            // 'allow-scripts' e 'allow-same-origin' são vitais para o player rodar
-            // NÃO usar 'allow-popups' bloqueia as novas abas
-            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-presentation'); 
+            // sandbox removido
 
             const overlay = document.getElementById('player-overlay');
             const container = document.getElementById('iframe-container');
