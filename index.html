@@ -8,71 +8,79 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@200;400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
         :root { --net-red: #E50914; --net-black: #141414; }
-        body { background-color: var(--net-black); color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
+        body { background-color: var(--net-black); color: white; font-family: 'Martel Sans', sans-serif; }
         
-        /* SHIELD ANTI-POPUP */
+        /* SHIELD ANTI-POPUP MELHORADO */
         #player-shield {
             position: absolute;
             inset: 0;
             z-index: 2000;
-            background: rgba(0,0,0,0.8); /* Escurece para focar na escolha do play */
+            background: rgba(0,0,0,0.7);
             display: none; 
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(8px);
         }
 
         .master-play-btn {
-            width: 90px;
-            height: 90px;
+            width: 80px;
+            height: 80px;
             background: var(--net-red);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 35px;
-            color: white;
-            box-shadow: 0 0 40px rgba(229, 9, 20, 0.6);
-            transition: all 0.3s ease;
+            font-size: 30px;
+            box-shadow: 0 0 30px rgba(229, 9, 20, 0.5);
+            animation: pulse 1.5s infinite;
         }
 
-        .master-play-btn:hover { transform: scale(1.15); background: #ff0f1b; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(229, 9, 20, 0); }
+            100% { transform: scale(1); }
+        }
 
-        /* Restante do Visual */
-        .hero-vignette { background: linear-gradient(to top, var(--net-black) 10%, transparent 50%), linear-gradient(to right, rgba(20,20,20,0.9) 0%, transparent 60%); }
-        .nav-black { background-color: rgba(20, 20, 20, 0.98); }
-        .poster-card { transition: all 0.4s ease; cursor: pointer; }
-        .poster-card:hover { transform: scale(1.1); z-index: 50; }
+        .hero-vignette { background: linear-gradient(to top, var(--net-black) 10%, transparent 60%); }
     </style>
 </head>
 <body>
 
-    <nav id="navbar" class="fixed top-0 w-full z-[100] transition-all duration-300 px-6 md:px-12 py-4 flex items-center justify-between">
+    <nav class="fixed top-0 w-full z-[100] bg-gradient-to-b from-black/80 to-transparent px-6 py-4 flex items-center justify-between">
         <h1 class="text-red-600 text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative group">
-            <input id="search-input" type="text" placeholder="Buscar..." class="bg-black/40 border border-white/20 rounded-full py-1.5 px-4 text-sm focus:w-64 transition-all w-32 outline-none focus:border-red-600">
-            <div id="search-results" class="absolute top-12 right-0 w-[300px] bg-zinc-900 rounded-xl shadow-2xl hidden p-2 border border-white/10 z-[110]"></div>
+        
+        <div class="flex items-center gap-4">
+            <div class="relative">
+                <input id="search-input" type="text" placeholder="Pesquisar..." 
+                    class="bg-black/60 border border-white/20 rounded-full py-2 px-5 text-sm w-40 md:w-64 outline-none focus:border-red-600 transition-all">
+                <button id="search-btn" class="absolute right-3 top-2.5 text-gray-400 hover:text-white">
+                    <i class="fas fa-search"></i>
+                </button>
+                <div id="search-results" class="absolute top-14 right-0 w-[300px] bg-zinc-900 rounded-lg shadow-2xl hidden overflow-hidden border border-white/10"></div>
+            </div>
         </div>
     </nav>
 
-    <main id="main-view" class="min-h-screen"></main>
+    <main id="main-view" class="pt-20"></main>
 
     <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[2100] bg-gradient-to-b from-black to-transparent">
-            <button onclick="closePlayer()" class="text-white flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full hover:bg-red-600 transition">
-                <i class="fas fa-arrow-left"></i> Voltar
+        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[2100]">
+            <button onclick="closePlayer()" class="text-white bg-red-600 px-6 py-2 rounded-full font-bold shadow-lg">
+                <i class="fas fa-times mr-2"></i> FECHAR PLAYER
+            </button>
+            <button onclick="activateShield()" class="text-white bg-white/10 px-4 py-2 rounded-full text-xs hover:bg-white/20">
+                <i class="fas fa-shield-alt mr-1"></i> TRAVAR CLIQUES (ANTI-ADS)
             </button>
         </div>
 
-        <div class="relative w-full h-full bg-black">
-            <div id="player-shield" onclick="killShield()">
-                <div class="flex flex-col items-center gap-4">
-                    <div class="master-play-btn"><i class="fas fa-play"></i></div>
-                    <p class="font-bold text-white uppercase tracking-widest text-sm">Iniciar Vídeo (Sem Popups)</p>
-                </div>
+        <div class="relative w-full h-full">
+            <div id="player-shield" onclick="this.style.display='none'">
+                <div class="master-play-btn"><i class="fas fa-play"></i></div>
+                <p class="mt-4 font-bold text-white uppercase tracking-widest text-xs">O Clique agora está protegido</p>
             </div>
             <div id="iframe-target" class="w-full h-full"></div>
         </div>
@@ -82,70 +90,90 @@
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
         const BASE_URL = 'https://api.themoviedb.org/3';
 
-        // Lógica de Busca e carregamento de página mantidas...
-        // [Omitido para brevidade, mas igual ao anterior funcional]
+        // --- CORREÇÃO DA BUSCA ---
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
 
-        // --- NOVA LÓGICA DO PLAYER ---
-        function openPlayer(type, id, title) {
+        async function performSearch() {
+            const query = searchInput.value;
+            const resBox = document.getElementById('search-results');
+            if (query.length < 3) return;
+
+            const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            
+            resBox.classList.remove('hidden');
+            resBox.innerHTML = data.results.slice(0, 5).map(i => `
+                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-red-600 flex gap-3 cursor-pointer border-b border-white/5">
+                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover">
+                    <div class="text-xs">
+                        <p class="font-bold">${i.title || i.name}</p>
+                        <p class="opacity-60">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        searchInput.addEventListener('input', performSearch);
+        searchBtn.addEventListener('click', () => searchInput.focus());
+
+        // --- PLAYER COM CONTROLE DE SHIELD ---
+        function openPlayer(type, id) {
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
             const shield = document.getElementById('player-shield');
 
-            // Primeiro: Escondemos o Shield para você ver as opções Dub/Leg
-            shield.style.display = 'none';
-
             const url = `https://superflixapi.asia/${type}/${id}`;
-            
-            // Criamos o iframe e monitoramos o carregamento
-            target.innerHTML = `<iframe id="main-iframe" src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allowfullscreen></iframe>`;
             
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
+            shield.style.display = 'none'; // Começa aberto para você escolher Dub/Leg
 
-            // BARREIRA INTELIGENTE:
-            // Assim que o iframe terminar de carregar o "menu" de Dublado/Legendado,
-            // nós subimos o escudo em 2 segundos (tempo médio de interação) 
-            // ou você pode clicar na opção e o escudo sobe para o play final.
-            
-            // Para ser agressivo contra o popup do DESPAUSE:
-            // Vamos fazer o escudo aparecer apenas após um pequeno delay para não tapar o menu inicial.
+            // Após 5 segundos (tempo de escolher o áudio), o escudo sobe automático para proteger o play final
             setTimeout(() => {
-                shield.style.display = 'flex';
-            }, 3000); // 3 segundos é o tempo para você escolher dub/leg sem o botão atrapalhar
+                activateShield();
+            }, 6000);
         }
 
-        function killShield() {
-            document.getElementById('player-shield').style.display = 'none';
+        function activateShield() {
+            document.getElementById('player-shield').style.display = 'flex';
         }
 
         function closePlayer() {
             document.getElementById('iframe-target').innerHTML = '';
             document.getElementById('player-overlay').classList.add('hidden');
-            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            document.getElementById('player-shield').style.display = 'none';
         }
 
-        // Lógica de renderização de cards e busca simplificada para teste rápido
-        async function showPage(page) {
+        // --- CARREGAMENTO INICIAL ---
+        async function loadHome() {
             const main = document.getElementById('main-view');
-            const res = await fetch(`${BASE_URL}/trending/all/day?api_key=${API_KEY}&language=pt-BR`);
-            const data = await res.json();
-            const items = data.results;
-            const hero = items[0];
+            try {
+                const res = await fetch(`${BASE_URL}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
+                const data = await res.json();
+                const hero = data.results[0];
 
-            main.innerHTML = `
-                <div class="relative h-[80vh] w-full">
-                    <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
-                    <div class="absolute inset-0 hero-vignette"></div>
-                    <div class="absolute bottom-[20%] left-6 md:left-12">
-                        <h2 class="text-5xl font-black mb-4 uppercase italic">${hero.title || hero.name}</h2>
-                        <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id}, '${hero.title || hero.name}')" class="bg-white text-black px-10 py-3 rounded font-black hover:bg-red-600 hover:text-white transition">ASSISTIR</button>
+                main.innerHTML = `
+                    <div class="relative h-[60vh] mb-10 overflow-hidden rounded-3xl mx-6">
+                        <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-10">
+                            <h2 class="text-5xl font-black uppercase italic">${hero.title || hero.name}</h2>
+                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" class="mt-4 bg-red-600 w-fit px-8 py-3 rounded-full font-bold">ASSISTIR AGORA</button>
+                        </div>
                     </div>
-                </div>
-                <div class="p-12 grid grid-cols-2 md:grid-cols-6 gap-6">
-                    ${items.map(i => `<div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-card"><img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded"></div>`).join('')}
-                </div>`;
+                    <div class="px-8 grid grid-cols-2 md:grid-cols-5 gap-6">
+                        ${data.results.slice(1, 11).map(i => `
+                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="cursor-pointer group">
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg group-hover:scale-105 transition-transform duration-300">
+                                <p class="mt-2 text-sm font-bold truncate">${i.title || i.name}</p>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } catch (e) { console.error("Erro ao carregar:", e); }
         }
-        showPage('home');
+
+        loadHome();
     </script>
 </body>
 </html>
