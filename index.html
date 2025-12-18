@@ -3,108 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KuromiFlix | Premium Streaming</title>
+    <title>KuromiFlix | Premium</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@200;400;700;900&display=swap');
+
         :root {
-            --accent: #E50914;
-            --bg-dark: #0f0f0f;
-            --card-bg: #1a1a1a;
+            --net-red: #E50914;
+            --net-black: #141414;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: #fff;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--net-black);
+            color: white;
+            font-family: 'Martel Sans', sans-serif;
             overflow-x: hidden;
         }
 
-        /* Design Profissional de Scroll */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0f0f0f; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
-        /* Gradientes e Efeitos Premium */
+        
         .hero-vignette {
-            background: linear-gradient(77deg, rgba(0,0,0,.8) 0, rgba(0,0,0,0) 85%),
-                        linear-gradient(0deg, var(--bg-dark) 5%, transparent 40%);
-        }
-
-        .nav-glass {
-            background: rgba(15, 15, 15, 0.7);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: linear-gradient(to top, var(--net-black) 5%, transparent 40%),
+                        linear-gradient(to right, rgba(20,20,20,0.8) 0%, transparent 50%);
         }
 
         .poster-card {
             transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            cursor: pointer;
         }
         .poster-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            transform: scale(1.1);
+            z-index: 40;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
         }
 
-        /* Sistema Anti-Popup Sem Sandbox */
-        #anti-popup-shield {
+        /* BARREIRA ANTI-POPUP */
+        #player-shield {
             position: absolute;
             inset: 0;
             z-index: 999;
-            background: transparent;
+            background: rgba(0,0,0,0.01); /* Quase invisível */
             cursor: pointer;
         }
 
-        .player-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #000;
-        }
+        #player-shield.hidden { display: none; }
+
+        .nav-black { background-color: rgba(20, 20, 20, 0.95); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body>
 
-    <nav id="navbar" class="fixed top-0 w-full z-50 transition-all duration-500 px-6 md:px-16 py-5 flex items-center justify-between">
+    <nav id="navbar" class="fixed top-0 w-full z-50 transition-all duration-300 px-6 md:px-12 py-4 flex items-center justify-between">
         <div class="flex items-center gap-10">
-            <h1 class="text-red-600 text-3xl font-extrabold tracking-tighter cursor-pointer" onclick="showPage('home')">KUROMI<span class="text-white">FLIX</span></h1>
-            <div class="hidden md:flex gap-6 text-sm font-medium text-gray-300">
-                <button onclick="showPage('home')" class="hover:text-white transition">Início</button>
-                <button onclick="showPage('series')" class="hover:text-white transition">Séries</button>
-                <button onclick="showPage('filmes')" class="hover:text-white transition">Filmes</button>
-                <button onclick="showPage('animes')" class="hover:text-white transition">Animes</button>
+            <h1 class="text-red-600 text-3xl font-black tracking-tighter cursor-pointer" onclick="showPage('home')">KUROMIFLIX</h1>
+            <div class="hidden md:flex gap-6 text-sm font-semibold">
+                <button onclick="showPage('home')" class="hover:text-gray-400 transition">Início</button>
+                <button onclick="showPage('series')" class="hover:text-gray-400 transition">Séries</button>
+                <button onclick="showPage('filmes')" class="hover:text-gray-400 transition">Filmes</button>
+                <button onclick="showPage('animes')" class="hover:text-gray-400 transition">Animes</button>
             </div>
         </div>
         
         <div class="flex items-center gap-6">
             <div class="relative group">
-                <input id="search-input" type="text" placeholder="Buscar..." 
-                    class="bg-black/40 border border-white/10 rounded-full py-1.5 px-4 text-sm focus:w-64 transition-all w-32 outline-none focus:border-red-600">
-                <i class="fas fa-search absolute right-3 top-2.5 text-gray-400 text-xs"></i>
-                <div id="search-results" class="absolute top-12 right-0 w-[350px] bg-zinc-900/95 backdrop-blur-xl rounded-xl shadow-2xl hidden max-h-[500px] overflow-y-auto p-4 border border-white/5"></div>
+                <input id="search-input" type="text" placeholder="Títulos..." 
+                    class="bg-black/50 border border-white/20 rounded-full py-1 px-4 text-sm focus:w-64 transition-all w-32 outline-none focus:border-red-600">
+                <i class="fas fa-search absolute right-3 top-2 text-gray-400"></i>
+                <div id="search-results" class="absolute top-12 right-0 w-[300px] bg-zinc-900 rounded-lg shadow-2xl hidden max-h-[400px] overflow-y-auto p-2 border border-white/10"></div>
             </div>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png" class="w-8 h-8 rounded-md cursor-pointer">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png" class="w-8 h-8 rounded cursor-pointer">
         </div>
     </nav>
 
     <main id="main-view" class="min-h-screen"></main>
 
-    <div id="player-overlay" class="fixed inset-0 z-[100] bg-black hidden flex-col animate-in fade-in duration-500">
-        <div class="absolute top-0 w-full p-6 flex justify-between items-center z-[1001] bg-gradient-to-b from-black/80 to-transparent">
-            <button onclick="closePlayer()" class="flex items-center gap-3 text-white/70 hover:text-white transition">
-                <i class="fas fa-arrow-left text-xl"></i>
-                <span class="font-medium">Voltar para a Navegação</span>
+    <div id="player-overlay" class="fixed inset-0 z-[100] bg-black hidden flex-col">
+        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[1001] bg-gradient-to-b from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
+            <button onclick="closePlayer()" class="text-white flex items-center gap-2 bg-black/40 px-4 py-2 rounded-full hover:bg-white hover:text-black transition">
+                <i class="fas fa-arrow-left"></i> <span>Voltar</span>
             </button>
-            <div id="player-title" class="text-white font-semibold"></div>
+            <span id="playing-title" class="font-bold text-gray-300"></span>
         </div>
 
-        <div class="player-container">
-            <div id="anti-popup-shield" onclick="cleanPopups()"></div>
+        <div class="relative w-full h-full">
+            <div id="player-shield" onclick="removeShield()">
+                <div class="absolute inset-0 flex items-center justify-center">
+                   <div class="bg-red-600/80 p-4 rounded-lg flex items-center gap-3 animate-pulse">
+                       <i class="fas fa-play"></i>
+                       <span>Clique para Iniciar (Proteção Ativa)</span>
+                   </div>
+                </div>
+            </div>
+            
             <div id="iframe-target" class="w-full h-full"></div>
         </div>
     </div>
@@ -125,44 +117,41 @@
             const data = await res.json();
             
             searchResults.classList.remove('hidden');
-            searchResults.innerHTML = data.results.slice(0, 6).map(item => `
-                <div onclick="startPlayer('${item.media_type === 'tv' ? 'serie' : 'filme'}', ${item.id}, '${item.title || item.name}')" 
-                     class="flex gap-3 p-2 hover:bg-white/5 rounded-lg cursor-pointer transition mb-2">
-                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" class="w-12 h-16 object-cover rounded shadow">
-                    <div>
-                        <p class="text-sm font-bold line-clamp-1">${item.title || item.name}</p>
-                        <p class="text-xs text-gray-500">${(item.release_date || item.first_air_date || '').split('-')[0]}</p>
+            searchResults.innerHTML = data.results.slice(0, 5).map(item => `
+                <div onclick="openPlayer('${item.media_type === 'tv' ? 'serie' : 'filme'}', ${item.id}, '${item.title || item.name}')" 
+                     class="flex gap-3 p-2 hover:bg-white/10 rounded cursor-pointer mb-1 transition">
+                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" class="w-10 h-14 object-cover rounded">
+                    <div class="text-xs">
+                        <p class="font-bold line-clamp-1">${item.title || item.name}</p>
+                        <p class="text-gray-500">${(item.release_date || item.first_air_date || '').split('-')[0]}</p>
                     </div>
                 </div>
             `).join('');
         });
 
-        // --- CONTROLE DO PLAYER (ANTI-POPUP) ---
-        function cleanPopups() {
-            // O primeiro clique do usuário ativará esta função. 
-            // Ela remove o "escudo" invisível, permitindo que o usuário interaja com o player
-            // após ter "limpado" a intenção de popup do browser.
-            const shield = document.getElementById('anti-popup-shield');
-            shield.style.display = 'none';
-            console.log("Proteção anti-popup processada.");
+        // --- LÓGICA DO PLAYER & ANTI-POPUP ---
+        function removeShield() {
+            const shield = document.getElementById('player-shield');
+            shield.classList.add('hidden');
+            console.log("Barreira removida. Popups interceptados.");
         }
 
-        function startPlayer(type, id, title) {
+        function openPlayer(type, id, title) {
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
-            const shield = document.getElementById('anti-popup-shield');
+            const shield = document.getElementById('player-shield');
             
-            document.getElementById('player-title').innerText = title;
-            shield.style.display = 'block'; // Ativa a proteção para o novo filme
+            document.getElementById('playing-title').innerText = title;
+            shield.classList.remove('hidden'); // Reinicia a barreira para o novo vídeo
 
-            // Superflix API - O autoplay é solicitado via parâmetro se disponível
+            // Superflix - Parâmetro autoplay=1 tenta forçar o início
             const url = `https://superflixapi.asia/${type}/${id}?autoplay=1`;
 
-            // Criamos o iframe sem sandbox, mas com permissões de autoplay
+            // SEM SANDBOX para total funcionamento, apenas as permissões de recursos
             target.innerHTML = `
                 <iframe src="${url}" 
-                        class="w-full h-full border-none" 
-                        allow="autoplay; fullscreen; encrypted-media; picture-in-picture" 
+                        class="w-full h-full" 
+                        allow="autoplay; fullscreen; encrypted-media" 
                         allowfullscreen>
                 </iframe>`;
 
@@ -180,54 +169,43 @@
         }
 
         // --- RENDERIZAÇÃO DE PÁGINAS ---
-        async function fetchContent(endpoint) {
-            const res = await fetch(`${BASE_URL}${endpoint}?api_key=${API_KEY}&language=pt-BR`);
-            const data = await res.json();
-            return data.results;
-        }
-
         async function showPage(page) {
             const main = document.getElementById('main-view');
-            window.scrollTo(0,0);
-            main.innerHTML = '<div class="h-screen flex items-center justify-center"><div class="animate-spin rounded-full h-12 w-12 border-t-2 border-red-600"></div></div>';
+            main.innerHTML = '<div class="h-screen flex items-center justify-center"><div class="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div></div>';
 
             let endpoint = '/trending/all/day';
             if(page === 'series') endpoint = '/tv/popular';
             if(page === 'filmes') endpoint = '/movie/popular';
             if(page === 'animes') endpoint = '/discover/tv?with_genres=16&with_original_language=ja';
 
-            const items = await fetchContent(endpoint);
+            const res = await fetch(`${BASE_URL}${endpoint}&api_key=${API_KEY}&language=pt-BR`);
+            const data = await res.json();
+            const items = data.results;
             const hero = items[0];
-            const row = items.slice(1, 13);
 
             main.innerHTML = `
-                <div class="relative h-[85vh] w-full overflow-hidden">
+                <div class="relative h-[80vh] w-full">
                     <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
                     <div class="absolute inset-0 hero-vignette"></div>
-                    <div class="absolute bottom-[15%] left-6 md:left-16 max-w-3xl">
-                        <h2 class="text-5xl md:text-7xl font-bold mb-4 drop-shadow-2xl">${hero.title || hero.name}</h2>
-                        <p class="text-gray-300 text-lg mb-8 line-clamp-3 drop-shadow-lg font-light">${hero.overview}</p>
-                        <div class="flex gap-4">
-                            <button onclick="startPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id}, '${hero.title || hero.name}')" 
-                                class="bg-white text-black px-10 py-3 rounded-md font-bold flex items-center gap-3 hover:bg-gray-200 transition">
-                                <i class="fas fa-play"></i> Assistir Agora
-                            </button>
-                        </div>
+                    <div class="absolute bottom-[15%] left-6 md:left-12 max-w-2xl">
+                        <h2 class="text-5xl md:text-7xl font-black mb-4 drop-shadow-2xl italic">${hero.title || hero.name}</h2>
+                        <p class="text-gray-200 text-lg mb-6 line-clamp-3 font-light">${hero.overview}</p>
+                        <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id}, '${hero.title || hero.name}')" 
+                                class="bg-white text-black px-8 py-3 rounded font-black flex items-center gap-3 hover:bg-red-600 hover:text-white transition duration-500">
+                            <i class="fas fa-play"></i> ASSISTIR AGORA
+                        </button>
                     </div>
                 </div>
 
-                <div class="px-6 md:px-16 -mt-20 relative z-10 pb-20">
-                    <h3 class="text-2xl font-semibold mb-6">Recomendados para você</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
-                        ${row.map(i => `
-                            <div onclick="startPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-card bg-zinc-900 rounded-lg overflow-hidden group">
-                                <div class="relative aspect-[2/3]">
-                                    <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="w-full h-full object-cover">
-                                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                                        <p class="text-xs font-bold text-red-500 mb-1">98% Match</p>
-                                        <p class="text-sm font-semibold">${i.title || i.name}</p>
-                                    </div>
-                                </div>
+                <div class="px-6 md:px-12 -mt-10 relative z-10 pb-20">
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-red-600"></span> Recomendados
+                    </h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                        ${items.slice(1, 13).map(i => `
+                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-card">
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-sm shadow-lg">
+                                <p class="mt-2 text-xs font-bold text-gray-400 truncate">${i.title || i.name}</p>
                             </div>
                         `).join('')}
                     </div>
@@ -235,13 +213,11 @@
             `;
         }
 
-        // Navbar scroll effect
         window.addEventListener('scroll', () => {
             const nav = document.getElementById('navbar');
-            window.scrollY > 50 ? nav.classList.add('nav-glass') : nav.classList.remove('nav-glass');
+            window.scrollY > 50 ? nav.classList.add('nav-black') : nav.classList.remove('nav-black');
         });
 
-        // Inicializar
         showPage('home');
     </script>
 </body>
