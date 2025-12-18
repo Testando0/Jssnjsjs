@@ -12,67 +12,66 @@
         :root { --net-red: #E50914; --net-black: #141414; }
         body { background-color: var(--net-black); color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .hero-vignette { background: linear-gradient(to top, var(--net-black) 5%, transparent 40%), linear-gradient(to right, rgba(20,20,20,0.8) 0%, transparent 50%); }
-        .nav-black { background-color: rgba(20, 20, 20, 0.95); backdrop-filter: blur(10px); }
-        .poster-card { transition: all 0.3s ease; cursor: pointer; position: relative; }
-        .poster-card:hover { transform: scale(1.08); z-index: 10; }
         
-        /* SHIELD ANTI-POPUP */
+        .hero-vignette { 
+            background: linear-gradient(to top, var(--net-black) 8%, transparent 40%), 
+                        linear-gradient(to right, rgba(20,20,20,0.9) 0%, transparent 60%); 
+        }
+        .nav-black { background-color: rgba(20, 20, 20, 0.98); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        
+        .poster-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; }
+        .poster-card:hover { transform: scale(1.1); z-index: 20; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+
+        /* BARREIRA ANTI-POPUP IMEDIATA */
         #player-shield {
             position: absolute;
             inset: 0;
-            z-index: 1000;
-            background: rgba(0,0,0,0.01);
-            display: flex;
-            align-items: center;
-            justify-center: center;
+            z-index: 2000;
+            background: rgba(0,0,0,0.01); /* Invisível para o usuário, visível para o clique */
+            display: none; 
             cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <nav id="navbar" class="fixed top-0 w-full z-50 transition-all duration-300 px-6 md:px-12 py-4 flex items-center justify-between">
+    <nav id="navbar" class="fixed top-0 w-full z-[100] transition-all duration-300 px-6 md:px-12 py-4 flex items-center justify-between">
         <div class="flex items-center gap-10">
             <h1 class="text-red-600 text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-            <div class="hidden md:flex gap-6 text-sm font-semibold">
-                <button onclick="showPage('home')" class="hover:text-red-600 transition">Início</button>
-                <button onclick="showPage('series')" class="hover:text-red-600 transition">Séries</button>
-                <button onclick="showPage('filmes')" class="hover:text-red-600 transition">Filmes</button>
-                <button onclick="showPage('animes')" class="hover:text-red-600 transition">Animes</button>
+            <div class="hidden md:flex gap-6 text-sm font-bold text-gray-300">
+                <button onclick="showPage('home')" class="hover:text-white transition">Início</button>
+                <button onclick="showPage('series')" class="hover:text-white transition">Séries</button>
+                <button onclick="showPage('filmes')" class="hover:text-white transition">Filmes</button>
+                <button onclick="showPage('animes')" class="hover:text-white transition">Animes</button>
             </div>
         </div>
         
         <div class="flex items-center gap-6">
-            <div class="relative group">
-                <input id="search-input" type="text" placeholder="Buscar título..." 
-                    class="bg-black/50 border border-white/20 rounded-full py-1.5 px-4 text-sm focus:w-64 transition-all w-32 outline-none focus:border-red-600">
-                <div id="search-results" class="absolute top-12 right-0 w-[320px] bg-zinc-900 rounded-lg shadow-2xl hidden max-h-[450px] overflow-y-auto p-2 border border-white/10 z-[60]"></div>
+            <div class="relative">
+                <input id="search-input" type="text" placeholder="Buscar..." 
+                    class="bg-black/40 border border-white/20 rounded-full py-1.5 px-4 text-sm focus:w-64 transition-all w-32 outline-none focus:border-red-600">
+                <div id="search-results" class="absolute top-12 right-0 w-[320px] bg-zinc-900 rounded-xl shadow-2xl hidden max-h-[450px] overflow-y-auto p-2 border border-white/10 z-[110]"></div>
             </div>
             <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png" class="w-8 h-8 rounded">
         </div>
     </nav>
 
     <main id="main-view" class="min-h-screen">
-        <div id="initial-loader" class="h-screen flex items-center justify-center">
+        <div id="loader" class="h-screen flex items-center justify-center">
             <div class="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
     </main>
 
-    <div id="player-overlay" class="fixed inset-0 z-[100] bg-black hidden flex-col">
-        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[1100] bg-gradient-to-b from-black to-transparent opacity-0 hover:opacity-100 transition-opacity">
+    <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
+        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-[2100] bg-gradient-to-b from-black to-transparent opacity-0 hover:opacity-100 transition-opacity">
             <button onclick="closePlayer()" class="text-white flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full hover:bg-red-600 transition">
                 <i class="fas fa-arrow-left"></i> Sair do Player
             </button>
-            <span id="player-title-display" class="font-bold text-sm uppercase tracking-widest text-gray-400"></span>
+            <span id="player-title" class="text-gray-400 font-bold tracking-widest text-xs"></span>
         </div>
 
         <div class="relative w-full h-full bg-black">
-            <div id="player-shield" onclick="this.remove()">
-                <div class="bg-red-600 text-white px-6 py-3 rounded-md font-bold animate-pulse shadow-2xl">
-                   <i class="fas fa-play mr-2"></i> CLIQUE PARA INICIAR O VÍDEO
-                </div>
-            </div>
+            <div id="player-shield" onclick="this.style.display='none'"></div>
             <div id="iframe-target" class="w-full h-full"></div>
         </div>
     </div>
@@ -81,41 +80,42 @@
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
         const BASE_URL = 'https://api.themoviedb.org/3';
 
-        // --- BUSCA REAL-TIME ---
+        // --- BUSCA DINÂMICA ---
         document.getElementById('search-input').addEventListener('input', async (e) => {
             const query = e.target.value;
             const resBox = document.getElementById('search-results');
             if (query.length < 3) { resBox.classList.add('hidden'); return; }
 
-            try {
-                const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                resBox.classList.remove('hidden');
-                resBox.innerHTML = data.results.slice(0, 6).map(i => `
-                    <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id}, '${i.title || i.name}')" class="flex gap-3 p-2 hover:bg-red-600/20 rounded cursor-pointer transition mb-1">
-                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow-md">
-                        <div class="text-xs flex flex-col justify-center">
-                            <p class="font-bold text-white">${i.title || i.name}</p>
-                            <p class="text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
-                        </div>
+            const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            resBox.classList.remove('hidden');
+            resBox.innerHTML = data.results.slice(0, 6).map(i => `
+                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id}, '${i.title || i.name}')" class="flex gap-3 p-2 hover:bg-white/10 rounded cursor-pointer transition mb-1">
+                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow">
+                    <div class="flex flex-col justify-center">
+                        <p class="text-xs font-bold text-white">${i.title || i.name}</p>
+                        <p class="text-[10px] text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
                     </div>
-                `).join('');
-            } catch (err) { console.error(err); }
+                </div>
+            `).join('');
         });
 
-        // --- PLAYER COM SHIELD E AUTOPLAY ---
+        // --- PLAYER COM SHIELD IMEDIATO ---
         function openPlayer(type, id, title) {
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
-            document.getElementById('player-title-display').innerText = title;
+            const shield = document.getElementById('player-shield');
+            document.getElementById('player-title').innerText = title;
 
-            // Superflix URL com autoplay forçado
             const url = `https://superflixapi.asia/${type}/${id}?autoplay=1`;
-
-            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>`;
+            
+            target.innerHTML = `<iframe src="${url}" class="w-full h-full" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
-            
+
+            // ATIVAÇÃO IMEDIATA DO ESCUDO
+            shield.style.display = 'block'; 
+
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
             document.getElementById('search-results').classList.add('hidden');
         }
@@ -126,7 +126,7 @@
             if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         }
 
-        // --- CARREGAMENTO DE CONTEÚDO ---
+        // --- CARREGAMENTO DE PÁGINAS ---
         async function showPage(page) {
             const main = document.getElementById('main-view');
             window.scrollTo(0,0);
@@ -136,43 +136,48 @@
             if(page === 'filmes') endpoint = '/movie/popular';
             if(page === 'animes') endpoint = '/discover/tv?with_genres=16&with_original_language=ja';
 
+            const separator = endpoint.includes('?') ? '&' : '?';
+            const finalUrl = `${BASE_URL}${endpoint}${separator}api_key=${API_KEY}&language=pt-BR`;
+
             try {
-                const res = await fetch(`${BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${API_KEY}&language=pt-BR`);
+                const res = await fetch(finalUrl);
                 const data = await res.json();
                 const items = data.results;
                 const hero = items[0];
 
                 main.innerHTML = `
-                    <div class="relative h-[80vh] w-full">
+                    <div class="relative h-[85vh] w-full">
                         <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
                         <div class="absolute inset-0 hero-vignette"></div>
                         <div class="absolute bottom-[20%] left-6 md:left-12 max-w-2xl">
-                            <h2 class="text-5xl md:text-7xl font-black mb-4 italic drop-shadow-2xl">${hero.title || hero.name}</h2>
-                            <p class="text-gray-200 text-lg mb-6 line-clamp-3 font-light drop-shadow-lg">${hero.overview}</p>
+                            <h2 class="text-5xl md:text-7xl font-black mb-4 drop-shadow-2xl italic uppercase tracking-tighter">${hero.title || hero.name}</h2>
+                            <p class="text-gray-200 text-lg mb-8 line-clamp-3 font-light">${hero.overview}</p>
                             <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id}, '${hero.title || hero.name}')" 
-                                class="bg-white text-black px-10 py-3 rounded font-black flex items-center gap-3 hover:bg-red-600 hover:text-white transition duration-300">
+                                class="bg-white text-black px-12 py-4 rounded font-black flex items-center gap-3 hover:bg-red-600 hover:text-white transition duration-500 transform hover:scale-105">
                                 <i class="fas fa-play"></i> ASSISTIR AGORA
                             </button>
                         </div>
                     </div>
 
-                    <div class="px-6 md:px-12 -mt-12 relative z-10 pb-20">
-                        <h3 class="text-xl font-bold mb-6 flex items-center gap-2 underline decoration-red-600 decoration-4 underline-offset-8">EXPLORAR CONTEÚDO</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-6">
+                    <div class="px-6 md:px-12 -mt-16 relative z-10 pb-32">
+                        <h3 class="text-2xl font-bold mb-8 italic tracking-tight underline decoration-red-600 decoration-4 underline-offset-8 uppercase">Catálogo Premium</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
                             ${items.slice(1, 19).map(i => `
                                 <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-card">
-                                    <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded shadow-xl border border-white/5">
-                                    <div class="mt-2">
-                                        <p class="text-xs font-bold text-white truncate">${i.title || i.name}</p>
-                                        <p class="text-[10px] text-red-600 font-bold uppercase tracking-tighter">Premium</p>
+                                    <div class="relative aspect-[2/3] rounded-md overflow-hidden border border-white/5 shadow-2xl">
+                                        <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="w-full h-full object-cover" loading="lazy">
+                                        <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <i class="fas fa-play text-4xl text-white"></i>
+                                        </div>
                                     </div>
+                                    <p class="mt-3 text-[11px] font-bold text-gray-400 truncate uppercase tracking-widest text-center">${i.title || i.name}</p>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 `;
             } catch (err) {
-                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600">Erro ao carregar. Tente atualizar a página.</div>`;
+                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600 font-bold">ERRO AO CONECTAR COM O SERVIDOR.</div>`;
             }
         }
 
@@ -181,7 +186,6 @@
             window.scrollY > 50 ? nav.classList.add('nav-black') : nav.classList.remove('nav-black');
         });
 
-        // Início automático
         showPage('home');
     </script>
 </body>
