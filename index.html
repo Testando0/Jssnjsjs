@@ -4,24 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>KuromiFlix | Oficial</title>
+    <title>KuromiFlix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
-        body { background-color: #000; color: #fff; font-family: 'Martel Sans', sans-serif; margin: 0; }
-        .hero-v { background: linear-gradient(0deg, #000 5%, transparent 100%); }
-        .p-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 15px; }
-        @media (min-width: 768px) { .p-grid { grid-template-columns: repeat(6, 1fr); gap: 20px; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;900&display=swap');
+        body { background: #000; color: #fff; font-family: 'Inter', sans-serif; margin: 0; overflow-x: hidden; }
+        .hero-v { background: linear-gradient(0deg, #000 10%, transparent 100%); }
+        .movie-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 15px; }
+        @media (min-width: 768px) { .movie-grid { grid-template-columns: repeat(6, 1fr); gap: 20px; } }
         iframe { width: 100%; height: 100%; border: none; background: #000; }
     </style>
 </head>
 <body>
-    <nav class="fixed top-0 w-full z-[100] bg-black/90 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-white/10">
+
+    <nav class="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-white/10">
         <h1 class="text-red-600 text-2xl font-black cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative flex-grow max-w-[200px] md:max-w-md ml-4">
-            <input id="search-input" type="text" placeholder="Buscar..." class="bg-zinc-800 border border-white/20 rounded-md py-2 px-4 text-sm w-full outline-none focus:border-red-600">
-            <div id="search-results" class="absolute top-11 right-0 w-[280px] md:w-full rounded-lg shadow-2xl hidden border border-white/10 overflow-hidden bg-zinc-900 z-[110]"></div>
+        <div class="relative flex-grow max-w-[180px] md:max-w-md ml-4">
+            <input id="search-input" type="text" placeholder="Buscar..." class="bg-zinc-900 border border-white/10 rounded-md py-2 px-4 text-sm w-full outline-none focus:border-red-600">
+            <div id="search-results" class="absolute top-11 right-0 w-[280px] md:w-full bg-zinc-900 rounded-lg shadow-2xl hidden border border-white/10 z-[110]"></div>
         </div>
     </nav>
 
@@ -36,12 +37,14 @@
 
     <script>
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
-        const PROXY = 'https://proxy-aqfi.onrender.com/';
         const TMDB = 'https://api.themoviedb.org/3';
-        let isWatching = false;
+        const PLAYER_PROXY = 'https://proxy-aqfi.onrender.com/'; // Seu proxy aqui
+        let watching = false;
 
-        window.onblur = () => { if(isWatching) setTimeout(() => window.focus(), 150); };
+        // Proteção de foco contra popups externos
+        window.onblur = () => { if(watching) setTimeout(() => window.focus(), 200); };
 
+        // BUSCA VIA TMDB
         const sInput = document.getElementById('search-input');
         const sResults = document.getElementById('search-results');
 
@@ -49,21 +52,28 @@
             const query = sInput.value.trim();
             if (query.length < 3) { sResults.classList.add('hidden'); return; }
             try {
-                const res = await fetch(PROXY + `${TMDB}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
+                const res = await fetch(`${TMDB}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
                 const data = await res.json();
                 sResults.classList.remove('hidden');
                 sResults.innerHTML = data.results.slice(0, 6).map(i => `
-                    <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-red-600 flex gap-4 cursor-pointer border-b border-white/5 items-center">
-                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover">
-                        <p class="text-xs text-white">${i.title || i.name}</p>
+                    <div onclick="openPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="p-3 hover:bg-red-600 flex gap-4 cursor-pointer border-b border-white/5 items-center text-white">
+                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded">
+                        <p class="font-bold text-xs truncate">${i.title || i.name}</p>
                     </div>
                 `).join('');
-            } catch(e) {}
+            } catch(e) { console.error(e); }
         });
 
+        // PLAYER USANDO O PROXY DO RENDER
         function openPlayer(type, id) {
-            isWatching = true;
-            document.getElementById('iframe-target').innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allowfullscreen></iframe>`;
+            watching = true;
+            sResults.classList.add('hidden');
+            sInput.value = '';
+            
+            // Aqui ele usa o seu proxy para carregar o conteúdo da superflix
+            const embedUrl = `https://superflixapi.asia/${type}/${id}`;
+            document.getElementById('iframe-target').innerHTML = `<iframe src="${PLAYER_PROXY}${embedUrl}" allowfullscreen></iframe>`;
+            
             document.getElementById('player-overlay').classList.remove('hidden');
             document.getElementById('player-overlay').classList.add('flex');
             document.body.style.overflow = 'hidden';
@@ -71,35 +81,37 @@
         }
 
         function closePlayer() {
-            isWatching = false;
+            watching = false;
             document.getElementById('iframe-target').innerHTML = '';
             document.getElementById('player-overlay').classList.add('hidden');
             document.body.style.overflow = 'auto';
         }
 
+        // CARREGAR TENDÊNCIAS
         async function loadHome() {
             try {
-                const res = await fetch(PROXY + `${TMDB}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
+                const res = await fetch(`${TMDB}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
                 const data = await res.json();
                 const items = data.results;
                 const hero = items[0];
+
                 document.getElementById('main-view').innerHTML = `
                     <div class="relative h-[60vh] md:h-[80vh] w-full">
                         <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
                         <div class="absolute inset-0 hero-v flex flex-col justify-end p-6 md:p-12">
                             <h2 class="text-3xl md:text-7xl font-black uppercase mb-4">${hero.title || hero.name}</h2>
-                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" class="bg-red-600 text-white px-10 py-3 rounded font-bold w-fit active:scale-95 transition">ASSISTIR</button>
+                            <button onclick="openPlayer('${hero.media_type === 'tv' ? 'tv' : 'movie'}', ${hero.id})" class="bg-red-600 text-white px-10 py-3 rounded font-bold w-fit active:scale-95 transition">ASSISTIR AGORA</button>
                         </div>
                     </div>
-                    <div class="p-grid">
+                    <div class="movie-grid">
                         ${items.slice(1, 19).map(i => `
-                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="cursor-pointer">
-                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg">
-                                <p class="mt-2 text-xs truncate opacity-70">${i.title || i.name}</p>
+                            <div onclick="openPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="cursor-pointer">
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg shadow-lg">
+                                <p class="mt-2 text-xs font-bold truncate opacity-70 uppercase">${i.title || i.name}</p>
                             </div>
                         `).join('')}
                     </div>`;
-            } catch(e) {}
+            } catch(e) { console.error(e); }
         }
         loadHome();
     </script>
