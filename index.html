@@ -3,101 +3,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KUROMIFLIX</title>
+    <title>KuromiCine - All in One</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #000; color: #fff; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-        .grid-main { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 12px; 
-            padding: 15px; 
+        :root { --netflix-red: #E50914; --bg-dark: #0f0f0f; }
+        body { background-color: var(--bg-dark); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; margin: 0; }
+        
+        /* Barreira Anti-Popup Física */
+        #player-barrier {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; background: rgba(0,0,0,0); display: none;
         }
-        @media (min-width: 768px) { .grid-main { grid-template-columns: repeat(6, 1fr); gap: 20px; } }
-        iframe { width: 100%; height: 100%; border: none; background: #000; }
-        .nav-fixed { background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); }
+
+        .movie-card {
+            min-width: 160px; aspect-ratio: 2/3; border-radius: 8px; 
+            transition: transform 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+            cursor: pointer; background-size: cover; background-position: center;
+        }
+        .movie-card:hover { transform: scale(1.1); z-index: 30; }
+        
+        .hero {
+            height: 75vh; background-size: cover; background-position: center top;
+            display: flex; align-items: center; padding: 0 5%;
+            mask-image: linear-gradient(to top, transparent, black 20%);
+        }
+
+        .row-container { display: flex; overflow-x: auto; gap: 12px; padding: 20px 0; scrollbar-width: none; }
+        .row-container::-webkit-scrollbar { display: none; }
+
+        #player-modal { position: fixed; inset: 0; background: black; z-index: 500; display: none; }
+        
+        /* Busca Overlay */
+        #search-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+            z-index: 400; display: none; padding: 10% 5%;
+        }
+
+        @media (max-width: 768px) {
+            .hero-title { font-size: 2.5rem; }
+            .movie-card { min-width: 130px; }
+        }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-50 nav-fixed p-4 border-b border-white/10 flex justify-between items-center">
-        <h1 class="text-red-600 text-2xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative w-1/2 max-w-md">
-            <input id="input-busca" type="text" placeholder="Buscar..." class="bg-zinc-800 w-full rounded-full px-4 py-1.5 text-sm outline-none border border-transparent focus:border-red-600">
-            <div id="lista-busca" class="absolute top-12 left-0 w-full bg-zinc-900 rounded-lg shadow-2xl hidden z-[60] max-h-[70vh] overflow-y-auto"></div>
+    <div id="auth-screen" class="fixed inset-0 z-[600] flex items-center justify-center bg-black">
+        <div class="w-full max-w-sm p-8 bg-zinc-900 rounded-2xl text-center shadow-2xl border border-zinc-800">
+            <h1 class="text-red-600 text-5xl font-black mb-8 tracking-tighter">KUROMICINE</h1>
+            <input type="text" id="user-nick" placeholder="Nome de utilizador" class="w-full p-4 mb-4 bg-zinc-800 rounded-lg outline-none focus:ring-2 ring-red-600 transition-all">
+            <button onclick="handleLogin()" class="w-full bg-red-600 py-4 rounded-lg font-bold text-lg hover:bg-red-700">Entrar / Criar Conta</button>
         </div>
-    </nav>
+    </div>
 
-    <main id="view-principal" class="pt-20"></main>
-
-    <div id="modal-player" class="fixed inset-0 z-[100] bg-black hidden flex-col">
-        <div class="p-3 bg-zinc-900 border-b border-white/10 flex justify-between items-center">
-            <button onclick="fecharPlayer()" class="bg-red-600 text-white px-5 py-2 rounded font-bold text-xs uppercase transition active:scale-95">
-                Voltar
-            </button>
-            <span id="nome-video" class="text-[10px] text-zinc-400 font-bold uppercase truncate max-w-[180px]"></span>
+    <div id="search-overlay">
+        <div class="flex justify-between items-center mb-8">
+            <input type="text" id="search-input" oninput="searchTMDB()" placeholder="Procurar filmes, séries, animes..." class="w-full bg-transparent border-b-2 border-zinc-700 text-3xl py-2 outline-none focus:border-red-600">
+            <button onclick="toggleSearch()" class="ml-4 text-3xl">&times;</button>
         </div>
-        <div id="box-video" class="flex-grow"></div>
+        <div id="search-results" class="row-container flex-wrap justify-center"></div>
+    </div>
+
+    <main id="app-content" class="hidden">
+        <nav class="fixed top-0 w-full z-[100] flex justify-between items-center p-6 bg-gradient-to-b from-black/90 to-transparent">
+            <div class="flex items-center gap-8">
+                <span class="text-red-600 text-3xl font-black tracking-tighter">KUROMICINE</span>
+                <div class="hidden lg:flex gap-6 font-medium text-zinc-300">
+                    <button onclick="loadCategory('movie')" class="hover:text-white">Filmes</button>
+                    <button onclick="loadCategory('tv', 10759)" class="hover:text-white">Séries</button>
+                    <button onclick="loadCategory('tv', 16)" class="hover:text-white">Animes</button>
+                    <button onclick="loadCategory('tv', 18)" class="hover:text-white">Doramas</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <i class="fa fa-search text-2xl cursor-pointer" onclick="toggleSearch()"></i>
+                <div class="w-10 h-10 bg-red-600 rounded-md flex items-center justify-center font-bold" id="user-icon">K</div>
+            </div>
+        </nav>
+
+        <section class="hero" id="hero-display">
+            <div class="max-w-3xl">
+                <h1 id="hero-title" class="hero-title text-6xl font-black mb-4">...</h1>
+                <p id="hero-desc" class="text-xl text-zinc-300 mb-8 line-clamp-3"></p>
+                <div class="flex gap-4">
+                    <button id="hero-play-btn" class="bg-white text-black px-10 py-4 rounded-md font-black flex items-center gap-3 hover:bg-zinc-200 transition">
+                        <i class="fa fa-play text-xl"></i> ASSISTIR
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div class="px-[5%] -mt-24 relative z-20 space-y-10 pb-20">
+            <section>
+                <h2 class="text-2xl font-bold mb-4">Tendências da Semana</h2>
+                <div id="row-trending" class="row-container"></div>
+            </section>
+            
+            <section>
+                <h2 class="text-2xl font-bold mb-4">Animes & Séries</h2>
+                <div id="row-tv" class="row-container"></div>
+            </section>
+
+            <section>
+                <h2 class="text-2xl font-bold mb-4">Doramas em Destaque</h2>
+                <div id="row-doramas" class="row-container"></div>
+            </section>
+        </div>
+    </main>
+
+    <div id="player-modal">
+        <div class="absolute top-6 left-6 right-6 z-[60] flex justify-between items-center">
+            <button onclick="closePlayer()" class="bg-black/60 w-12 h-12 rounded-full text-white"><i class="fa fa-arrow-left text-xl"></i></button>
+            <div class="bg-black/60 px-4 py-2 rounded text-sm font-bold border border-white/20">PLAYER SUPERFLIX</div>
+        </div>
+
+        <div id="player-barrier" onclick="togglePlayPause()"></div>
+        
+        <iframe id="main-iframe" class="w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
+        
+        <div id="player-ui" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity">
+            <div class="bg-red-600/80 p-10 rounded-full shadow-2xl">
+                <i id="status-icon" class="fa fa-play text-6xl"></i>
+            </div>
+        </div>
     </div>
 
     <script>
-        const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
-        const campo = document.getElementById('input-busca');
-        const lista = document.getElementById('lista-busca');
+        const TMDB_KEY = '8265bd1679663a7ea12ac168da84d2e8';
+        const BASE_IMG = 'https://image.tmdb.org/t/p/original';
+        let isPaused = false;
 
-        // BUSCA DIRETA TMDB
-        campo.oninput = async () => {
-            const q = campo.value.trim();
-            if (q.length < 3) { lista.classList.add('hidden'); return; }
-            try {
-                const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(q)}`);
-                const d = await r.json();
-                lista.classList.remove('hidden');
-                lista.innerHTML = d.results.filter(i => i.poster_path).slice(0, 8).map(i => `
-                    <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id}, '${i.title || i.name}')" 
-                        class="p-3 border-b border-white/5 flex gap-4 cursor-pointer items-center hover:bg-zinc-800 transition">
-                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 rounded">
-                        <span class="text-xs font-bold">${i.title || i.name}</span>
-                    </div>
-                `).join('');
-            } catch(e) { console.error(e); }
+        // Login Simples
+        function handleLogin() {
+            const nick = document.getElementById('user-nick').value;
+            if(nick.length < 2) return alert("Insira um nome!");
+            localStorage.setItem('kuromi_user', nick);
+            document.getElementById('user-icon').innerText = nick[0].toUpperCase();
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            initApp();
+        }
+
+        // Carregamento de Dados
+        async function initApp() {
+            const trending = await (await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_KEY}&language=pt-BR`)).json();
+            const series = await (await fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_KEY}&language=pt-BR`)).json();
+            const doramas = await (await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_KEY}&with_original_language=ko&language=pt-BR`)).json();
+
+            renderRow(trending.results, 'row-trending');
+            renderRow(series.results, 'row-tv');
+            renderRow(doramas.results, 'row-doramas');
+            setHero(trending.results[0]);
+        }
+
+        function renderRow(data, elementId) {
+            document.getElementById(elementId).innerHTML = data.map(item => {
+                if(!item.poster_path) return '';
+                const type = item.media_type || (item.title ? 'movie' : 'tv');
+                return `
+                    <div class="movie-card" style="background-image: url(${BASE_IMG}${item.poster_path})"
+                         onclick="openPlayer('${item.id}', '${type}')"></div>
+                `;
+            }).join('');
+        }
+
+        function setHero(item) {
+            document.getElementById('hero-display').style.backgroundImage = `linear-gradient(to right, #0f0f0f 20%, transparent), url(${BASE_IMG}${item.backdrop_path})`;
+            document.getElementById('hero-title').innerText = item.title || item.name;
+            document.getElementById('hero-desc').innerText = item.overview;
+            document.getElementById('hero-play-btn').onclick = () => openPlayer(item.id, item.media_type || 'movie');
+        }
+
+        // Busca
+        async function searchTMDB() {
+            const query = document.getElementById('search-input').value;
+            if(query.length < 3) return;
+            const res = await (await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${query}&language=pt-BR`)).json();
+            renderRow(res.results, 'search-results');
+        }
+
+        function toggleSearch() {
+            const overlay = document.getElementById('search-overlay');
+            overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // Player & Barreira
+        function openPlayer(id, type) {
+            const modal = document.getElementById('player-modal');
+            const iframe = document.getElementById('main-iframe');
+            const path = (type === 'movie' || type === 'filme') ? 'filme' : 'serie';
+            
+            iframe.src = `https://superflixapi.asia/${path}/${id}`;
+            modal.style.display = 'block';
+            
+            // Ativa barreira após carregar (tempo para passar os anúncios iniciais automáticos)
+            setTimeout(() => {
+                document.getElementById('player-barrier').style.display = 'block';
+            }, 3000);
+        }
+
+        function closePlayer() {
+            document.getElementById('player-modal').style.display = 'none';
+            document.getElementById('main-iframe').src = "";
+            document.getElementById('player-barrier').style.display = 'none';
+            isPaused = false;
+        }
+
+        // Controle Remoto (OK / Enter)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === "Enter" && document.getElementById('player-modal').style.display === 'block') {
+                togglePlayPause();
+            }
+        });
+
+        function togglePlayPause() {
+            const ui = document.getElementById('player-ui');
+            const icon = document.getElementById('status-icon');
+            const iframe = document.getElementById('main-iframe');
+
+            isPaused = !isPaused;
+            icon.className = isPaused ? 'fa fa-pause text-6xl' : 'fa fa-play text-6xl';
+            iframe.style.opacity = isPaused ? "0.3" : "1";
+            iframe.style.pointerEvents = isPaused ? "none" : "auto";
+            
+            ui.style.opacity = "1";
+            setTimeout(() => ui.style.opacity = "0", 1000);
+        }
+
+        // Persistência de Sessão
+        window.onload = () => {
+            if(localStorage.getItem('kuromi_user')) handleLogin();
         };
-
-        function abrirPlayer(t, id, nome) {
-            lista.classList.add('hidden');
-            campo.value = '';
-            document.getElementById('nome-video').innerText = nome;
-            // PLAYER DIRETO: Sem sandbox, sem proxy, sem travas.
-            const url = `https://superflixapi.asia/${t}/${id}`;
-            document.getElementById('box-video').innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay; fullscreen"></iframe>`;
-            document.getElementById('modal-player').classList.remove('hidden');
-            document.getElementById('modal-player').classList.add('flex');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function fecharPlayer() {
-            document.getElementById('box-video').innerHTML = '';
-            document.getElementById('modal-player').classList.add('hidden');
-            document.body.style.overflow = 'auto';
-        }
-
-        async function init() {
-            try {
-                const r = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
-                const d = await r.json();
-                document.getElementById('view-principal').innerHTML = `
-                    <div class="grid-main">
-                        ${d.results.map(i => `
-                            <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id}, '${i.title || i.name}')" class="cursor-pointer group">
-                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg shadow-lg group-active:scale-95 transition">
-                                <p class="mt-2 text-[10px] font-bold truncate opacity-70 uppercase">${i.title || i.name}</p>
-                            </div>
-                        `).join('')}
-                    </div>`;
-            } catch(e) { console.error(e); }
-        }
-
-        init();
     </script>
 </body>
 </html>
