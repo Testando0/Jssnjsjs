@@ -88,7 +88,7 @@ if(firstClick){
 }
 
 document.body.style.overflow='hidden'
-target.innerHTML=`<iframe onload="playerLoaded=true" src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen sandbox="allow-same-origin allow-scripts allow-forms allow-presentation"></iframe>`
+target.innerHTML=`<iframe onload="playerLoaded=true" src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen ></iframe>`
 overlay.classList.remove('hidden')
 overlay.classList.add('flex')
 setTimeout(()=>{window.focus()},200)
