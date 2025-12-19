@@ -9,45 +9,65 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
-        body { background-color: #0a0a0a; color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
-        .hero-vignette { background: linear-gradient(to top, #0a0a0a 10%, transparent 80%); }
-        .poster-card { transition: transform 0.3s ease; cursor: pointer; }
-        .poster-card:hover { transform: scale(1.05); }
-        iframe { border: none; width: 100%; height: 100%; }
+        body { background-color: #050505; color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
+        .hero-gradient { background: linear-gradient(to top, #050505 5%, transparent 90%); }
+        .nav-glass { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); }
         
-        /* Grid Responsiva */
-        .main-grid {
+        /* Ajuste de Cards para Celular */
+        .movie-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, 1fr); /* 2 colunas no mobile */
             gap: 12px;
+            padding: 16px;
         }
-        @media (min-width: 768px) { .main-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
-        @media (min-width: 1024px) { .main-grid { grid-template-columns: repeat(6, 1fr); } }
+        @media (min-width: 768px) {
+            .movie-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 40px; }
+        }
+        @media (min-width: 1024px) {
+            .movie-grid { grid-template-columns: repeat(6, 1fr); }
+        }
+
+        .poster-item { transition: transform 0.3s ease; cursor: pointer; }
+        .poster-item:active { transform: scale(0.95); } /* Feedback de toque */
+
+        iframe { border: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        
+        /* Dropdown de pesquisa corrigido */
+        #search-results {
+            scrollbar-width: thin;
+            scrollbar-color: #E50914 #1a1a1a;
+        }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-[100] bg-black/90 backdrop-blur-md px-4 md:px-10 py-3 flex items-center justify-between">
-        <h1 class="text-red-600 text-xl md:text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative w-full max-w-[160px] md:max-w-md ml-4">
-            <input id="search-input" type="text" placeholder="Buscar..." 
-                class="bg-zinc-800 border border-white/10 rounded-full py-1.5 px-4 text-sm w-full outline-none focus:border-red-600">
-            <div id="search-results" class="absolute top-12 right-0 w-[280px] md:w-[350px] bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110]"></div>
+    <nav class="fixed top-0 w-full z-[100] nav-glass px-4 md:px-10 py-3 flex items-center justify-between">
+        <h1 class="text-red-600 text-xl md:text-3xl font-black tracking-tighter cursor-pointer shrink-0" onclick="location.reload()">KUROMIFLIX</h1>
+        
+        <div class="relative flex-grow max-w-[180px] md:max-w-md ml-4">
+            <div class="relative">
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-500 text-sm"></i>
+                <input id="search-input" type="text" placeholder="Pesquisar..." 
+                    class="bg-zinc-900 border border-white/10 rounded-md py-2 pl-9 pr-4 text-xs md:text-sm w-full outline-none focus:border-red-600 transition-all">
+            </div>
+            <div id="search-results" class="absolute top-11 right-0 w-[280px] md:w-[400px] bg-zinc-900 rounded-lg shadow-2xl hidden border border-white/10 max-h-[70vh] overflow-y-auto z-[110]"></div>
         </div>
     </nav>
 
-    <main id="main-view" class="pt-0">
+    <main id="main-view">
         <div class="h-screen flex items-center justify-center"><div class="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div></div>
     </main>
 
     <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-        <div class="p-4 flex justify-between items-center bg-zinc-900">
-            <button onclick="closePlayer()" class="bg-red-600 text-white px-4 py-1.5 rounded font-bold text-sm active:scale-90">
-                <i class="fas fa-times mr-2"></i>FECHAR
+        <div class="p-3 bg-zinc-900 flex justify-between items-center border-b border-white/10">
+            <button onclick="closePlayer()" class="bg-red-600 text-white px-4 py-1.5 rounded-md font-bold text-xs uppercase">
+                <i class="fas fa-arrow-left mr-2"></i>Sair
             </button>
-            <span class="text-[10px] text-gray-400 uppercase tracking-widest">Modo Seguro</span>
+            <span id="p-title" class="text-[10px] md:text-xs font-bold truncate max-w-[150px] md:max-w-none uppercase text-gray-400 tracking-widest"></span>
         </div>
-        <div id="iframe-target" class="flex-grow"></div>
+        <div class="relative flex-grow">
+            <div id="iframe-target" class="w-full h-full"></div>
+        </div>
     </div>
 
     <script>
@@ -55,41 +75,56 @@
         const BASE_URL = 'https://api.themoviedb.org/3';
         let playerActive = false;
 
-        // --- PROTEÇÃO DE FOCO (SÓ ATIVA NO PLAYER) ---
+        // --- PROTEÇÃO ANTI-POPUP (PUXA O FOCO DE VOLTA) ---
         window.onblur = function() {
             if (playerActive) {
                 setTimeout(() => { window.focus(); }, 100);
             }
         };
 
-        // --- PESQUISA (FIXED) ---
-        document.getElementById('search-input').addEventListener('input', async (e) => {
-            const query = e.target.value;
-            const resBox = document.getElementById('search-results');
-            if (query.length < 3) { resBox.classList.add('hidden'); return; }
+        // --- SISTEMA DE PESQUISA (BLINDADO) ---
+        const sInput = document.getElementById('search-input');
+        const sResults = document.getElementById('search-results');
+
+        sInput.addEventListener('input', async (e) => {
+            const query = e.target.value.trim();
+            if (query.length < 3) { sResults.classList.add('hidden'); return; }
 
             try {
                 const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
                 const data = await res.json();
-                resBox.classList.remove('hidden');
-                resBox.innerHTML = data.results.slice(0, 6).map(i => `
-                    <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-white/10 flex gap-3 cursor-pointer border-b border-white/5 transition">
-                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow">
-                        <div class="flex flex-col justify-center overflow-hidden">
-                            <p class="font-bold text-xs truncate text-white">${i.title || i.name}</p>
-                            <p class="text-[10px] text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0]}</p>
+                
+                if (data.results.length > 0) {
+                    sResults.classList.remove('hidden');
+                    sResults.innerHTML = data.results.filter(i => i.poster_path).slice(0, 8).map(i => `
+                        <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id}, '${i.title || i.name}')" 
+                            class="p-3 hover:bg-red-600/20 flex gap-4 cursor-pointer border-b border-white/5 transition group">
+                            <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-12 h-16 object-cover rounded shadow-md">
+                            <div class="flex flex-col justify-center overflow-hidden">
+                                <p class="font-bold text-sm text-white truncate group-hover:text-red-500">${i.title || i.name}</p>
+                                <p class="text-[10px] text-gray-500">${(i.release_date || i.first_air_date || '').split('-')[0] || 'N/A'}</p>
+                            </div>
                         </div>
-                    </div>
-                `).join('');
-            } catch (err) { console.error(err); }
+                    `).join('');
+                } else {
+                    sResults.innerHTML = '<p class="p-4 text-xs text-gray-500">Nenhum resultado encontrado.</p>';
+                }
+            } catch (err) { console.error("Erro na busca:", err); }
         });
 
-        // --- PLAYER ---
-        function openPlayer(type, id) {
+        // Fechar busca ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!sInput.contains(e.target) && !sResults.contains(e.target)) sResults.classList.add('hidden');
+        });
+
+        // --- LÓGICA DO PLAYER ---
+        function openPlayer(type, id, title) {
             playerActive = true;
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
-            document.getElementById('search-results').classList.add('hidden');
+            document.getElementById('p-title').innerText = title;
+            sResults.classList.add('hidden');
+            sInput.value = '';
 
             target.innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
             overlay.classList.remove('hidden');
@@ -105,39 +140,53 @@
             document.body.style.overflow = 'auto';
         }
 
-        // --- CARREGAR PÁGINA ---
+        // --- CARREGAR CONTEÚDO DA HOME ---
         async function loadHome() {
             const main = document.getElementById('main-view');
             try {
-                const res = await fetch(`${BASE_URL}/trending/all/day?api_key=${API_KEY}&language=pt-BR`);
+                const res = await fetch(`${BASE_URL}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
                 const data = await res.json();
                 const items = data.results;
                 const hero = items[0];
 
                 main.innerHTML = `
-                    <div class="relative h-[55vh] md:h-[80vh] w-full">
+                    <div class="relative h-[65vh] md:h-[85vh] w-full overflow-hidden">
                         <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
-                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-16">
-                            <h2 class="text-3xl md:text-6xl font-black uppercase italic mb-4 max-w-4xl">${hero.title || hero.name}</h2>
-                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" 
-                                class="bg-red-600 text-white px-10 py-3 rounded-md font-bold w-fit active:scale-95 transition-transform">
-                                ASSISTIR AGORA
+                        <div class="absolute inset-0 hero-gradient flex flex-col justify-end p-6 md:p-16">
+                            <h2 class="text-3xl md:text-7xl font-black uppercase italic mb-4 leading-none max-w-5xl drop-shadow-lg text-white">
+                                ${hero.title || hero.name}
+                            </h2>
+                            <p class="hidden md:block text-gray-300 max-w-2xl mb-8 text-lg line-clamp-3">
+                                ${hero.overview}
+                            </p>
+                            <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id}, '${hero.title || hero.name}')" 
+                                class="bg-red-600 text-white px-10 py-4 rounded-md font-black w-fit active:scale-95 hover:bg-red-700 transition-all flex items-center gap-3">
+                                <i class="fas fa-play"></i> ASSISTIR AGORA
                             </button>
                         </div>
                     </div>
-                    <div class="px-4 md:px-12 py-10">
-                        <h3 class="text-lg font-bold mb-6 border-l-4 border-red-600 pl-3 uppercase">Tendências</h3>
-                        <div class="main-grid">
+
+                    <div class="py-6">
+                        <h3 class="px-6 md:px-12 text-lg md:text-xl font-bold mb-4 uppercase tracking-tighter border-l-4 border-red-600 ml-4 md:ml-10 pl-3">
+                            Bombando na Semana
+                        </h3>
+                        <div class="movie-grid">
                             ${items.slice(1, 19).map(i => `
-                                <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="poster-card">
-                                    <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg border border-white/5 shadow-lg">
-                                    <p class="mt-2 text-[11px] font-bold truncate opacity-80 uppercase">${i.title || i.name}</p>
+                                <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id}, '${i.title || i.name}')" class="poster-item">
+                                    <div class="aspect-[2/3] rounded-md overflow-hidden border border-white/5 bg-zinc-900 shadow-xl">
+                                        <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="w-full h-full object-cover" loading="lazy">
+                                    </div>
+                                    <p class="mt-2 text-[11px] md:text-sm font-bold truncate opacity-80 uppercase tracking-tight">
+                                        ${i.title || i.name}
+                                    </p>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 `;
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600">Erro ao conectar com o servidor.</div>`;
+            }
         }
 
         loadHome();
