@@ -38,6 +38,7 @@ const BASE_URL='https://api.themoviedb.org/3'
 let isWatching=false
 let playerLoaded=false
 let firstClick=true
+let originalWindowOpen=null
 
 /*
    CONTROLE DE POPUP (ANTES DO PLAYER)
@@ -71,20 +72,21 @@ isWatching=true
 const overlay=document.getElementById('player-overlay')
 const target=document.getElementById('iframe-target')
 
-// 🔒 Bloqueio de popup SOMENTE no primeiro clique
+// 🔒 BLOQUEIO REAL: intercepta window.open ANTES do popup nascer
 if(firstClick){
-  const popupGuard = () => {
-    if(!playerLoaded){
-      window.focus()
-      setTimeout(()=>window.focus(),100)
-    }
-  }
-  window.addEventListener('blur', popupGuard)
+  originalWindowOpen = window.open
+  window.open = function(){ return null }
 
+  // reforço contra tentativas por blur
+  const blurGuard = ()=>{ if(!playerLoaded) window.focus() }
+  window.addEventListener('blur', blurGuard, true)
+
+  // libera após o primeiro play estar estável
   setTimeout(()=>{
-    window.removeEventListener('blur', popupGuard)
+    window.open = originalWindowOpen
+    window.removeEventListener('blur', blurGuard, true)
     firstClick=false
-  }, 4000)
+  }, 5000)
 }
 
 document.body.style.overflow='hidden'
