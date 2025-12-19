@@ -1,133 +1,80 @@
 <!DOCTYPE html><html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>KuromiFlix | Premium</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;800;900&display=swap');
-body{background:#050505;color:#fff;font-family:'Martel Sans',sans-serif}
-.hero-vignette{background:linear-gradient(to top,#050505 5%,rgba(0,0,0,.6) 60%,transparent)}
-.nav-blur{background:rgba(0,0,0,.92);backdrop-filter:blur(10px)}
-.content-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:16px}
-@media(min-width:640px){.content-grid{grid-template-columns:repeat(3,1fr)}}
-@media(min-width:768px){.content-grid{grid-template-columns:repeat(4,1fr);gap:20px;padding:32px}}
-@media(min-width:1024px){.content-grid{grid-template-columns:repeat(6,1fr)}}
-#search-results{max-height:65vh;overflow-y:auto}
-#player-overlay iframe{width:100%;height:100%;border:0}
-</style>
-</head>
-<body><nav class="fixed top-0 w-full z-[100] nav-blur px-4 md:px-12 py-3 flex items-center gap-4 border-b border-white/5">
-<h1 class="text-red-600 text-xl md:text-3xl font-black tracking-tight cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-<div class="relative w-full max-w-xs md:max-w-md">
-<input id="search-input" type="text" placeholder="Pesquisar filmes ou séries..." class="w-full bg-zinc-900 border border-white/10 rounded-md py-2 px-4 text-sm outline-none focus:border-red-600">
-<div id="search-results" class="absolute mt-2 w-full bg-zinc-900 rounded-lg shadow-2xl hidden border border-white/10"></div>
-</div>
-</nav><main id="main-view" class="pt-[70px]"></main><div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-<div class="flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-white/10">
-<button onclick="closePlayer()" class="bg-red-600 px-4 py-2 rounded font-bold text-xs uppercase flex items-center gap-2">
-<i class="fa fa-times"></i>Fechar
-</button>
-<span class="text-[10px] uppercase tracking-widest text-zinc-400">Player Seguro</span>
-</div>
-<div id="iframe-target" class="flex-1"></div>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KuromiFlix | Premium</title>  <script src="https://cdn.tailwindcss.com"></script>  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
+    body { background:#050505; color:#fff; font-family:'Martel Sans',sans-serif }
+    .hero-vignette { background:linear-gradient(to top,#050505 5%,transparent 90%) }
+    .nav-blur { background:rgba(0,0,0,.9); backdrop-filter:blur(8px) }
+    .content-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; padding:16px }
+    @media(min-width:768px){ .content-grid{grid-template-columns:repeat(4,1fr);gap:20px;padding:40px} }
+    @media(min-width:1024px){ .content-grid{grid-template-columns:repeat(6,1fr)} }
+  </style></head>
+<body><nav class="fixed top-0 w-full z-50 nav-blur px-4 md:px-12 py-3 flex items-center justify-between border-b border-white/5">
+  <h1 class="text-red-600 text-xl md:text-3xl font-black cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
+  <input id="search" placeholder="Pesquisar..." class="bg-zinc-900 border border-white/10 rounded-md py-2 px-4 text-xs md:text-sm outline-none" />
+</nav><main id="home" class="pt-16"></main><!-- PLAYER --><div id="player" class="fixed inset-0 bg-black z-[999] hidden flex-col">
+  <div class="p-3 bg-zinc-900 flex justify-between items-center">
+    <button onclick="closePlayer()" class="bg-red-600 px-4 py-1.5 rounded font-bold text-xs">
+      <i class="fas fa-times"></i> FECHAR
+    </button>
+    <span class="text-[10px] uppercase opacity-60">Proxy Seguro Ativo</span>
+  </div>
+  <iframe id="player-frame" class="flex-grow w-full" allow="autoplay;fullscreen" allowfullscreen></iframe>
 </div><script>
-const API_KEY='8265bd1679663a7ea12ac168da84d2e8'
-const BASE_URL='https://api.themoviedb.org/3'
-let isWatching=false
-let playerLoaded=false
-let firstClick=true
-let originalWindowOpen=null
+const API_KEY = '8265bd1679663a7ea12ac168da84d2e8'
+const TMDB = 'https://api.themoviedb.org/3'
+const PROXY = 'https://proxy-aqfi.onrender.com/player'
 
-/*
-   CONTROLE DE POPUP (ANTES DO PLAYER)
-   Se o iframe tentar abrir popup/aba ANTES de carregar o player,
-   o foco retorna automaticamente.
-   Depois do carregamento, não interfere em temporadas/episódios.
-*/
-
-const sInput=document.getElementById('search-input')
-const sResults=document.getElementById('search-results')
-
-sInput.addEventListener('input',async e=>{
-const q=e.target.value.trim()
-if(q.length<3){sResults.classList.add('hidden');return}
-const r=await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(q)}`)
-const d=await r.json()
-sResults.classList.remove('hidden')
-sResults.innerHTML=d.results.slice(0,6).map(i=>`
-<div onclick="openPlayer('${i.media_type==='tv'?'serie':'filme'}',${i.id})" class="flex gap-3 p-3 hover:bg-red-600/20 cursor-pointer">
-<img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 rounded object-cover">
-<div class="overflow-hidden">
-<p class="font-bold text-xs truncate">${i.title||i.name}</p>
-<p class="text-[10px] text-zinc-400">${(i.release_date||i.first_air_date||'').split('-')[0]}</p>
-</div>
-</div>`).join('')
-})
+let watching = false
 
 function openPlayer(type,id){
-playerLoaded=false
-isWatching=true
-const overlay=document.getElementById('player-overlay')
-const target=document.getElementById('iframe-target')
-
-// 🔒 BLOQUEIO REAL: intercepta window.open ANTES do popup nascer
-if(firstClick){
-  originalWindowOpen = window.open
-  window.open = function(){ return null }
-
-  // reforço contra tentativas por blur
-  const blurGuard = ()=>{ if(!playerLoaded) window.focus() }
-  window.addEventListener('blur', blurGuard, true)
-
-  // libera após o primeiro play estar estável
-  setTimeout(()=>{
-    window.open = originalWindowOpen
-    window.removeEventListener('blur', blurGuard, true)
-    firstClick=false
-  }, 5000)
-}
-
-document.body.style.overflow='hidden'
-target.innerHTML=`<iframe onload="playerLoaded=true" src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen ></iframe>`
-overlay.classList.remove('hidden')
-overlay.classList.add('flex')
-setTimeout(()=>{window.focus()},200)
+  watching = true
+  document.body.style.overflow='hidden'
+  const frame=document.getElementById('player-frame')
+  frame.src=`${PROXY}/${type}/${id}`
+  document.getElementById('player').classList.remove('hidden')
 }
 
 function closePlayer(){
-playerLoaded=false
-isWatching=false
-isWatching=false
-document.body.style.overflow='auto'
-document.getElementById('iframe-target').innerHTML=''
-document.getElementById('player-overlay').classList.add('hidden')
+  watching=false
+  document.body.style.overflow='auto'
+  const frame=document.getElementById('player-frame')
+  frame.src=''
+  document.getElementById('player').classList.add('hidden')
 }
 
+window.addEventListener('blur',()=>{
+  if(watching) setTimeout(()=>window.focus(),50)
+})
+
 async function loadHome(){
-const main=document.getElementById('main-view')
-const r=await fetch(`${BASE_URL}/trending/all/week?api_key=${API_KEY}&language=pt-BR`)
-const d=await r.json()
-const hero=d.results[0]
-main.innerHTML=`
-<section class="relative h-[65vh] md:h-[85vh]">
-<img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
-<div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-16">
-<h2 class="text-3xl md:text-6xl font-black uppercase max-w-4xl">${hero.title||hero.name}</h2>
-<button onclick="openPlayer('${hero.title?'filme':'serie'}',${hero.id})" class="mt-4 bg-red-600 px-8 py-3 rounded-md font-black flex items-center gap-3 w-fit">
-<i class="fa fa-play"></i>Assistir
-</button>
-</div>
-</section>
-<section class="content-grid">
-${d.results.slice(1,19).map(i=>`
-<div onclick="openPlayer('${i.title?'filme':'serie'}',${i.id})" class="cursor-pointer">
-<img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-md shadow hover:scale-105 transition">
-<p class="mt-2 text-xs md:text-sm font-bold truncate uppercase opacity-80">${i.title||i.name}</p>
-</div>`).join('')}
-</section>`
+  const res=await fetch(`${TMDB}/trending/all/week?api_key=${API_KEY}&language=pt-BR`)
+  const data=await res.json()
+  const hero=data.results[0]
+
+  home.innerHTML=`
+  <section class="relative h-[65vh] md:h-[85vh]">
+    <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover" />
+    <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-16">
+      <h2 class="text-3xl md:text-7xl font-black mb-4">${hero.title||hero.name}</h2>
+      <button onclick="openPlayer('${hero.title?'filme':'serie'}',${hero.id})" class="bg-red-600 px-8 py-3 font-black rounded">
+        <i class="fas fa-play"></i> ASSISTIR
+      </button>
+    </div>
+  </section>
+
+  <section class="content-grid">
+    ${data.results.slice(1,19).map(i=>`
+      <div onclick="openPlayer('${i.title?'filme':'serie'}',${i.id})" class="cursor-pointer">
+        <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-md hover:scale-105 transition" />
+        <p class="mt-2 text-xs uppercase opacity-80 truncate">${i.title||i.name}</p>
+      </div>
+    `).join('')}
+  </section>`
 }
+
 loadHome()
 </script></body>
 </html>
