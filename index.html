@@ -3,167 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KuromiCine Premium</title>
+    <title>KuromiCine Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { --netflix-red: #E50914; --bg-dark: #050505; }
         body { background-color: var(--bg-dark); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
         
-        /* Barreira Anti-Popup */
+        /* Barreira Anti-Popup (Z-INDEX ALTÍSSIMO SÓ QUANDO ATIVA) */
         #player-barrier {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 100; background: rgba(0,0,0,0); display: none;
+            position: absolute; inset: 0;
+            z-index: 500; background: rgba(0,0,0,0); display: none;
         }
 
-        /* Design Cards */
         .movie-card {
             min-width: 150px; aspect-ratio: 2/3; border-radius: 4px; 
             transition: 0.3s; cursor: pointer; background-size: cover;
         }
-        .movie-card:hover { transform: scale(1.05); }
+        .movie-card:hover { transform: scale(1.05); border: 2px solid white; }
         
-        /* Player Modal */
-        #player-modal { position: fixed; inset: 0; background: black; z-index: 500; display: none; }
+        /* Modais */
+        .full-modal { position: fixed; inset: 0; background: black; display: none; }
+        #player-modal { z-index: 1000; }
+        #search-modal { z-index: 900; background: rgba(0,0,0,0.95); overflow-y: auto; }
         
-        .status-msg {
-            position: absolute; top: 20px; right: 20px; 
-            padding: 5px 15px; border-radius: 20px; font-size: 11px;
-            text-transform: uppercase; letter-spacing: 1px; z-index: 110;
+        .status-badge {
+            position: absolute; top: 20px; right: 80px; 
+            padding: 5px 12px; border-radius: 4px; font-size: 10px;
+            font-weight: bold; z-index: 1001; text-transform: uppercase;
         }
-        .mode-unlocked { background: #22c55e; color: white; }
-        .mode-locked { background: #ef4444; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="app" class="p-6">
+    <div id="main-ui" class="p-6">
         <header class="flex justify-between items-center mb-10">
             <h1 class="text-red-600 text-3xl font-black">KUROMICINE</h1>
-            <input type="text" id="search" oninput="doSearch()" placeholder="Buscar..." class="bg-zinc-800 p-2 rounded outline-none w-64">
+            <button onclick="openSearch()" class="bg-zinc-800 px-4 py-2 rounded-full flex items-center gap-3 w-64 text-zinc-400">
+                <i class="fa fa-search"></i> Pesquisar conteúdo...
+            </button>
         </header>
 
-        <div id="content-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            </div>
+        <div id="home-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
     </div>
 
-    <div id="player-modal">
-        <div id="barrier-status" class="status-msg mode-unlocked">
-            <i class="fa fa-unlock mr-2"></i> Navegação Livre
+    <div id="search-modal" class="full-modal p-8">
+        <div class="flex items-center gap-4 mb-10">
+            <button onclick="closeSearch()" class="text-2xl"><i class="fa fa-arrow-left"></i></button>
+            <input type="text" id="search-input" oninput="liveSearch()" autofocus 
+                   placeholder="Digite o nome do filme ou série..." 
+                   class="bg-transparent border-b-2 border-zinc-700 w-full text-2xl py-2 outline-none focus:border-red-600">
         </div>
+        <div id="search-results" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+    </div>
 
-        <button onclick="closePlayer()" class="absolute top-5 left-5 z-[120] bg-black/50 w-10 h-10 rounded-full">
-            <i class="fa fa-arrow-left"></i>
+    <div id="player-modal" class="full-modal">
+        <div id="barrier-info" class="status-badge bg-green-600">Livre</div>
+        
+        <button onclick="closePlayer()" class="absolute top-5 left-5 z-[1100] bg-black/50 w-10 h-10 rounded-full">
+            <i class="fa fa-times"></i>
         </button>
 
-        <div id="player-barrier" onclick="handleBarrierClick()"></div>
+        <div id="player-barrier" onclick="remoteToggle()"></div>
         
         <iframe id="video-frame" class="w-full h-full" src="" frameborder="0" allowfullscreen></iframe>
         
-        <div id="pause-ui" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity z-[110]">
-            <div class="bg-black/80 w-20 h-20 rounded-full flex items-center justify-center">
-                <i id="pause-icon" class="fa fa-play text-3xl"></i>
+        <div id="pause-feedback" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity z-[1050]">
+            <div class="bg-red-600/90 w-24 h-24 rounded-full flex items-center justify-center shadow-2xl">
+                <i id="pause-icon" class="fa fa-play text-4xl text-white"></i>
             </div>
         </div>
     </div>
 
     <script>
         const TMDB_KEY = '8265bd1679663a7ea12ac168da84d2e8';
-        let clickCount = 0;
+        let clicksBeforeLock = 0;
         let isPaused = false;
-        let autoLockTimer;
 
-        // Inicialização
-        async function init() {
+        // 1. CARREGAMENTO INICIAL
+        async function loadHome() {
             const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_KEY}&language=pt-BR`);
             const data = await res.json();
-            const grid = document.getElementById('content-grid');
-            grid.innerHTML = data.results.map(item => `
-                <div class="movie-card" style="background-image: url(https://image.tmdb.org/t/p/w500${item.poster_path})"
-                     onclick="openPlayer('${item.id}', '${item.media_type || 'movie'}')"></div>
-            `).join('');
+            renderGrid(data.results, 'home-grid');
         }
 
-        // --- LÓGICA DA BARREIRA INTELIGENTE ---
-        function openPlayer(id, type) {
+        function renderGrid(data, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = data.map(item => {
+                if(!item.poster_path) return '';
+                const type = item.media_type || (item.title ? 'movie' : 'tv');
+                return `<div class="movie-card" style="background-image: url(https://image.tmdb.org/t/p/w500${item.poster_path})"
+                             onclick="startContent('${item.id}', '${type}')"></div>`;
+            }).join('');
+        }
+
+        // 2. SISTEMA DE PESQUISA (ISOLADO)
+        function openSearch() { 
+            document.getElementById('search-modal').style.display = 'block';
+            document.getElementById('search-input').focus();
+        }
+        function closeSearch() { document.getElementById('search-modal').style.display = 'none'; }
+
+        async function liveSearch() {
+            const query = document.getElementById('search-input').value;
+            if(query.length < 3) return;
+            const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${query}&language=pt-BR`);
+            const data = await res.json();
+            renderGrid(data.results, 'search-results');
+        }
+
+        // 3. SISTEMA DE PLAYER (PROTEGIDO)
+        function startContent(id, type) {
             const modal = document.getElementById('player-modal');
             const iframe = document.getElementById('video-frame');
-            const status = document.getElementById('barrier-status');
             const path = type === 'movie' ? 'filme' : 'serie';
             
-            clickCount = 0; // Reseta contagem
+            closeSearch(); // Fecha a pesquisa se estiver aberta
             iframe.src = `https://superflixapi.asia/${path}/${id}`;
             modal.style.display = 'block';
             
-            // Avisa o usuário que ele pode navegar
-            status.className = "status-msg mode-unlocked";
-            status.innerHTML = '<i class="fa fa-unlock mr-2"></i> Selecione Episódio/Áudio';
+            // RESET DA BARREIRA
+            clicksBeforeLock = 0;
+            document.getElementById('player-barrier').style.display = 'none';
+            const badge = document.getElementById('barrier-info');
+            badge.innerText = "Navegação Livre";
+            badge.className = "status-badge bg-green-600";
 
-            // Bloqueio de segurança por tempo (Caso o usuário não precise clicar muito)
-            clearTimeout(autoLockTimer);
-            autoLockTimer = setTimeout(activateBarrier, 25000); // 25s de segurança
-
-            // Monitor de Cliques no Modal
-            modal.onmousedown = () => {
-                if(document.getElementById('player-barrier').style.display !== 'block') {
-                    clickCount++;
-                    // Após 3 cliques (Tempo/Episódio/Player), ativa a barreira
-                    if(clickCount >= 3) {
-                        setTimeout(activateBarrier, 2000); // Espera 2s após o último clique
-                    }
+            // ESCUTA CLIQUES NO MODAL PARA ATIVAR BARREIRA
+            modal.onmousedown = function() {
+                clicksBeforeLock++;
+                // Após 3 cliques (Temporada > Ep > Player), ativa a barreira anti-popup
+                if(clicksBeforeLock >= 3) {
+                    setTimeout(armBarrier, 2000);
                 }
             };
         }
 
-        function activateBarrier() {
-            const barrier = document.getElementById('player-barrier');
-            const status = document.getElementById('barrier-status');
-            
-            barrier.style.display = 'block';
-            status.className = "status-msg mode-locked";
-            status.innerHTML = '<i class="fa fa-lock mr-2"></i> Barreira Anti-Popup Ativa';
-            
-            // Esconde o aviso após 3 segundos para não atrapalhar o filme
-            setTimeout(() => status.style.opacity = "0", 3000);
+        function armBarrier() {
+            document.getElementById('player-barrier').style.display = 'block';
+            const badge = document.getElementById('barrier-info');
+            badge.innerText = "Barreira Ativa (OK = Pause)";
+            badge.className = "status-badge bg-red-600";
+            setTimeout(() => badge.style.opacity = "0", 3000);
         }
 
         function closePlayer() {
-            document.getElementById('player-modal').style.display = 'none';
-            document.getElementById('video-frame').src = "";
+            const modal = document.getElementById('player-modal');
+            const iframe = document.getElementById('video-frame');
+            iframe.src = "";
+            modal.style.display = 'none';
             document.getElementById('player-barrier').style.display = 'none';
-            document.getElementById('barrier-status').style.opacity = "1";
-            clearTimeout(autoLockTimer);
+            isPaused = false;
         }
 
-        // --- CONTROLE REMOTO (BOTÃO OK) ---
+        // 4. CONTROLE REMOTO / TECLADO
         document.addEventListener('keydown', (e) => {
             if (e.key === "Enter" || e.keyCode === 13) {
                 if(document.getElementById('player-modal').style.display === 'block') {
-                    togglePlayPause();
+                    remoteToggle();
                 }
             }
         });
 
-        // Clique na barreira também aciona o Pause
-        function handleBarrierClick() {
-            togglePlayPause();
+        function remoteToggle() {
+            const barrier = document.getElementById('player-barrier');
+            // Só funciona se a barreira já estiver armada
+            if(barrier.style.display === 'block') {
+                const ui = document.getElementById('pause-feedback');
+                const icon = document.getElementById('pause-icon');
+                const iframe = document.getElementById('video-frame');
+
+                isPaused = !isPaused;
+                icon.className = isPaused ? 'fa fa-pause text-4xl' : 'fa fa-play text-4xl';
+                iframe.style.opacity = isPaused ? "0.2" : "1";
+                iframe.style.pointerEvents = isPaused ? "none" : "auto";
+                
+                ui.style.opacity = "1";
+                setTimeout(() => ui.style.opacity = "0", 1000);
+            }
         }
 
-        function togglePlayPause() {
-            const ui = document.getElementById('pause-ui');
-            const icon = document.getElementById('pause-icon');
-            const iframe = document.getElementById('video-frame');
-
-            isPaused = !isPaused;
-            icon.className = isPaused ? 'fa fa-pause text-3xl' : 'fa fa-play text-3xl';
-            iframe.style.opacity = isPaused ? "0.3" : "1";
-            iframe.style.pointerEvents = isPaused ? "none" : "auto";
-            
-            ui.style.opacity = "1";
-            setTimeout(() => ui.style.opacity = "0", 1000);
-        }
-
-        init();
+        loadHome();
     </script>
 </body>
 </html>
