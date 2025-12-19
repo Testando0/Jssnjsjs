@@ -9,102 +9,83 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Martel+Sans:wght@400;900&display=swap');
-        body { background-color: #141414; color: white; font-family: 'Martel Sans', sans-serif; overflow-x: hidden; }
+        body { background-color: #0d0d0d; color: white; font-family: 'Martel Sans', sans-serif; }
         
-        .hero-vignette { 
-            background: linear-gradient(to top, #141414 5%, transparent 60%),
-                        linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 100%); 
+        /* Ajuste de Grid Responsiva */
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
         }
+        @media (min-width: 768px) { .main-grid { grid-template-columns: repeat(4, 1fr); } }
+        @media (min-width: 1024px) { .main-grid { grid-template-columns: repeat(6, 1fr); } }
 
-        .poster-card { transition: transform 0.3s ease; cursor: pointer; }
-        .poster-card:hover { transform: scale(1.05); }
-
-        /* Iframe ocupa tudo */
-        #iframe-target iframe { border: none; width: 100%; height: 100%; }
+        .hero-vignette { background: linear-gradient(to top, #0d0d0d 10%, transparent 80%); }
+        iframe { border: none; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-[100] bg-black/90 backdrop-blur-md px-4 md:px-12 py-3 flex items-center justify-between">
-        <h1 class="text-red-600 text-2xl md:text-3xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <div class="relative w-full max-w-[180px] md:max-w-md ml-4">
-            <input id="search-input" type="text" placeholder="Buscar..." 
-                class="bg-zinc-800 border border-white/10 rounded-full py-1.5 px-4 md:px-6 text-sm w-full outline-none focus:border-red-600 transition-all">
-            <div id="search-results" class="absolute top-12 right-0 w-[280px] md:w-[350px] bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110]"></div>
-        </div>
+    <nav class="fixed top-0 w-full z-[100] bg-black/80 backdrop-blur-md px-4 md:px-10 py-3 flex items-center justify-between">
+        <h1 class="text-red-600 text-2xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
+        <input id="search-input" type="text" placeholder="Buscar..." 
+            class="bg-zinc-800 border border-white/10 rounded-full py-1.5 px-4 text-sm w-32 md:w-64 outline-none focus:border-red-600 transition-all">
     </nav>
 
-    <main id="main-view" class="min-h-screen">
-        <div class="h-screen flex items-center justify-center"><div class="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div></div>
-    </main>
+    <main id="main-view" class="pt-0"></main>
 
     <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
-        <div class="w-full p-4 flex justify-between items-center bg-zinc-900">
-            <button onclick="closePlayer()" class="text-white bg-red-600 px-5 py-2 rounded-lg font-bold flex items-center gap-2">
-                <i class="fas fa-times"></i> <span>Fechar</span>
+        <div class="p-4 flex justify-between items-center bg-zinc-900">
+            <button onclick="closePlayer()" class="bg-red-600 text-white px-4 py-1.5 rounded font-bold text-sm">
+                <i class="fas fa-times mr-2"></i>FECHAR
             </button>
-            <span class="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Modo Seguro Ativado</span>
+            <span class="text-[10px] text-gray-400 uppercase tracking-widest animate-pulse">Proteção Anti-Popup Ativa</span>
         </div>
-        <div id="iframe-target" class="flex-grow w-full bg-black"></div>
+        <div id="iframe-target" class="flex-grow"></div>
     </div>
 
     <script>
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
         const BASE_URL = 'https://api.themoviedb.org/3';
-        let isPlayerOpen = false;
+        let playerActive = false;
 
-        // --- ANTI-POPUP POR FOCO ---
-        // Se o player tentar abrir uma aba, o site "puxa" o foco de volta na hora
-        window.addEventListener('blur', function() {
-            if (isPlayerOpen) {
-                setTimeout(function() {
+        // --- LÓGICA DE PROTEÇÃO POR FOCO (AGRESSIVA) ---
+        // Essa função detecta se o popup tentou roubar o foco da aba atual
+        window.onblur = function() {
+            if (playerActive) {
+                // Se o player está aberto e a janela perdeu foco, "puxa" de volta
+                setTimeout(() => {
                     window.focus();
-                }, 100);
+                }, 50);
             }
-        });
+        };
 
-        // --- BUSCA ---
-        document.getElementById('search-input').addEventListener('input', async (e) => {
-            const query = e.target.value;
-            const resBox = document.getElementById('search-results');
-            if (query.length < 3) { resBox.classList.add('hidden'); return; }
-
-            const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            resBox.classList.remove('hidden');
-            resBox.innerHTML = data.results.slice(0, 5).map(i => `
-                <div onclick="openPlayer('${i.media_type === 'tv' ? 'serie' : 'filme'}', ${i.id})" class="p-3 hover:bg-white/10 flex gap-3 cursor-pointer border-b border-white/5">
-                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow">
-                    <div class="flex flex-col justify-center overflow-hidden">
-                        <p class="font-bold text-xs truncate">${i.title || i.name}</p>
-                    </div>
-                </div>
-            `).join('');
-        });
-
-        // --- PLAYER ---
         function openPlayer(type, id) {
-            isPlayerOpen = true;
             const overlay = document.getElementById('player-overlay');
             const target = document.getElementById('iframe-target');
             
-            target.innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+            // Ativamos a flag de proteção
+            playerActive = true;
+
+            const url = `https://superflixapi.asia/${type}/${id}`;
+            target.innerHTML = `<iframe id="flix-player" src="${url}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+            
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
             document.body.style.overflow = 'hidden';
-            
-            // Tenta forçar o foco para a nossa janela
+
+            // Garante que o foco inicial esteja na nossa página
             window.focus();
         }
 
         function closePlayer() {
-            isPlayerOpen = false;
+            playerActive = false;
             document.getElementById('iframe-target').innerHTML = '';
             document.getElementById('player-overlay').classList.add('hidden');
             document.body.style.overflow = 'auto';
         }
 
-        // --- HOME ---
+        // --- CARREGAMENTO DO CONTEÚDO ---
         async function loadHome() {
             const main = document.getElementById('main-view');
             try {
@@ -114,25 +95,32 @@
                 const hero = items[0];
 
                 main.innerHTML = `
-                    <div class="relative h-[50vh] md:h-[80vh] w-full">
+                    <div class="relative h-[60vh] md:h-[80vh] w-full">
                         <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover">
-                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-16">
+                        <div class="absolute inset-0 hero-vignette flex flex-col justify-end p-6 md:p-12">
                             <h2 class="text-3xl md:text-6xl font-black uppercase italic mb-4">${hero.title || hero.name}</h2>
                             <button onclick="openPlayer('${hero.title ? 'filme' : 'serie'}', ${hero.id})" 
-                                class="bg-red-600 text-white px-8 py-3 rounded-md font-bold w-fit active:scale-95 transition-transform">
-                                ASSISTIR AGORA
+                                class="bg-red-600 text-white px-8 py-3 rounded-md font-bold w-fit hover:scale-105 transition-transform">
+                                ASSISTIR
                             </button>
                         </div>
                     </div>
-                    <div class="px-4 md:px-12 py-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-4">
-                        ${items.slice(1, 13).map(i => `
-                            <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="poster-card">
-                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg border border-white/5">
-                                <p class="mt-2 text-[10px] md:text-xs font-bold truncate opacity-80 uppercase">${i.title || i.name}</p>
-                            </div>
-                        `).join('')}
-                    </div>`;
-            } catch (e) { console.log(e); }
+
+                    <div class="px-4 md:px-12 py-10">
+                        <h3 class="mb-6 font-bold uppercase tracking-widest text-red-600">Recomendados</h3>
+                        <div class="main-grid">
+                            ${items.slice(1, 19).map(i => `
+                                <div onclick="openPlayer('${i.title ? 'filme' : 'serie'}', ${i.id})" class="cursor-pointer group">
+                                    <div class="overflow-hidden rounded-lg border border-white/5">
+                                        <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="group-hover:scale-110 transition-transform duration-500">
+                                    </div>
+                                    <p class="mt-2 text-[11px] font-bold truncate opacity-70">${i.title || i.name}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (e) { console.error(e); }
         }
 
         loadHome();
