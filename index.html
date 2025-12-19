@@ -2,85 +2,179 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KuromiFlix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>KUROMIFLIX | OFICIAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #000; color: #fff; margin: 0; font-family: sans-serif; }
-        .grid-container { 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 10px; 
-            padding: 10px; 
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        :root { --main-red: #E50914; --bg-black: #080808; }
+        body { background-color: var(--bg-black); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Grid inteligente para Mobile (2 colunas) e TV (6 colunas) */
+        .poster-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding: 12px;
         }
-        @media (min-width: 768px) { .grid-container { grid-template-columns: repeat(6, 1fr); } }
+        @media (min-width: 768px) { .poster-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
+        @media (min-width: 1280px) { .poster-grid { grid-template-columns: repeat(6, 1fr); } }
+
+        .hero-gradient { background: linear-gradient(to top, var(--bg-black) 10%, transparent 100%); }
+        .nav-glass { background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(15px); }
+        
         iframe { width: 100%; height: 100%; border: none; }
+        .aspect-poster { aspect-ratio: 2 / 3; }
+        
+        /* Previne scroll lateral */
+        html, body { overflow-x: hidden; width: 100%; }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-50 bg-black/90 p-4 border-b border-white/10 flex justify-between items-center">
-        <h1 class="text-red-600 text-2xl font-black" onclick="location.reload()">KUROMIFLIX</h1>
-        <input id="search" type="text" placeholder="Pesquisar..." class="bg-zinc-800 rounded px-4 py-1 text-sm outline-none focus:ring-1 focus:ring-red-600">
+    <nav class="fixed top-0 w-full z-[100] nav-glass px-4 md:px-12 py-4 flex items-center justify-between border-b border-white/5">
+        <div class="flex items-center gap-8">
+            <h1 class="text-red-600 text-2xl md:text-3xl font-black tracking-tighter cursor-pointer" onclick="window.location.reload()">KUROMIFLIX</h1>
+        </div>
+        
+        <div class="relative flex-grow max-w-[150px] md:max-w-md ml-4">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fas fa-search text-zinc-500 text-sm"></i>
+            </div>
+            <input id="search-input" type="text" placeholder="Filmes, séries..." 
+                class="bg-zinc-900 border border-transparent focus:border-red-600 rounded-full py-2 pl-10 pr-4 text-sm w-full outline-none transition-all">
+            <div id="search-results" class="absolute top-12 right-0 w-[280px] md:w-full bg-zinc-900 rounded-xl shadow-2xl hidden border border-white/10 overflow-hidden z-[110] max-h-[80vh] overflow-y-auto"></div>
+        </div>
     </nav>
 
-    <div id="results" class="fixed top-16 left-0 w-full bg-zinc-900 z-[60] hidden overflow-y-auto max-h-[70vh]"></div>
+    <main id="main-content" class="min-h-screen"></main>
 
-    <main id="main" class="pt-20"></main>
-
-    <div id="player" class="fixed inset-0 z-[100] bg-black hidden flex-col">
-        <div class="p-4 bg-zinc-900 flex justify-between">
-            <button onclick="closePlayer()" class="bg-red-600 px-6 py-2 rounded font-bold uppercase text-xs">Voltar</button>
+    <div id="player-overlay" class="fixed inset-0 z-[200] bg-black hidden flex-col">
+        <div class="p-4 bg-zinc-900/50 flex justify-between items-center backdrop-blur-sm">
+            <button onclick="closePlayer()" class="bg-white/10 hover:bg-red-600 text-white px-5 py-2 rounded-full font-bold text-xs uppercase transition-colors flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </button>
+            <div id="player-title" class="text-xs font-bold text-zinc-400 truncate max-w-[200px] uppercase tracking-widest"></div>
         </div>
-        <div id="video-area" class="flex-grow"></div>
+        <div id="iframe-target" class="flex-grow w-full bg-black"></div>
     </div>
 
     <script>
-        const KEY = '8265bd1679663a7ea12ac168da84d2e8';
-        const searchInput = document.getElementById('search');
-        const resultsDiv = document.getElementById('results');
+        const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
+        const BASE_URL = 'https://api.themoviedb.org/3';
+        let isWatching = false;
 
-        // BUSCA TMDB
-        searchInput.oninput = async () => {
-            if (searchInput.value.length < 3) { resultsDiv.classList.add('hidden'); return; }
-            const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${KEY}&language=pt-BR&query=${searchInput.value}`);
-            const data = await res.json();
-            resultsDiv.classList.remove('hidden');
-            resultsDiv.innerHTML = data.results.map(i => `
-                <div onclick="openPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="p-4 border-b border-white/5 flex gap-4 cursor-pointer items-center">
-                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10">
-                    <span>${i.title || i.name}</span>
-                </div>
-            `).join('');
-        };
+        // Recuperação de foco para Smart TVs e Mobile
+        window.onblur = () => { if(isWatching) setTimeout(() => window.focus(), 200); };
 
-        function openPlayer(type, id) {
-            resultsDiv.classList.add('hidden');
-            // Player limpo. Sem sandbox. Sem proxy. Do jeito que a API aceita.
-            document.getElementById('video-area').innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allowfullscreen></iframe>`;
-            document.getElementById('player').classList.remove('hidden');
-            document.getElementById('player').classList.add('flex');
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+
+        // BUSCA ROBUSTA
+        searchInput.addEventListener('input', async () => {
+            const query = searchInput.value.trim();
+            if (query.length < 3) { searchResults.classList.add('hidden'); return; }
+
+            try {
+                const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                
+                if(data.results.length > 0) {
+                    searchResults.classList.remove('hidden');
+                    searchResults.innerHTML = data.results.filter(i => i.poster_path).slice(0, 10).map(i => `
+                        <div onclick="openPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id}, '${i.title || i.name}')" 
+                            class="p-3 hover:bg-zinc-800 flex gap-4 cursor-pointer border-b border-white/5 items-center transition-colors">
+                            <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 h-14 object-cover rounded shadow-md">
+                            <div>
+                                <p class="font-bold text-sm text-white">${i.title || i.name}</p>
+                                <p class="text-[10px] text-zinc-500 uppercase">${i.media_type === 'tv' ? 'Série' : 'Filme'}</p>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) { console.error("Erro na busca"); }
+        });
+
+        // PLAYER
+        function openPlayer(type, id, title) {
+            isWatching = true;
+            document.getElementById('player-title').innerText = title;
+            searchResults.classList.add('hidden');
+            searchInput.value = '';
+
+            const iframeTarget = document.getElementById('iframe-target');
+            // Autoplay habilitado via parâmetros padrão de iframe
+            iframeTarget.innerHTML = `<iframe src="https://superflixapi.asia/${type}/${id}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+            
+            document.getElementById('player-overlay').classList.replace('hidden', 'flex');
             document.body.style.overflow = 'hidden';
+            window.scrollTo(0, 0);
         }
 
         function closePlayer() {
-            document.getElementById('video-area').innerHTML = '';
-            document.getElementById('player').classList.add('hidden');
+            isWatching = false;
+            document.getElementById('iframe-target').innerHTML = '';
+            document.getElementById('player-overlay').classList.replace('flex', 'hidden');
             document.body.style.overflow = 'auto';
         }
 
-        async function loadHome() {
-            const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${KEY}&language=pt-BR`);
-            const data = await res.json();
-            document.getElementById('main').innerHTML = `<div class="grid-container">${data.results.map(i => `
-                <div onclick="openPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="cursor-pointer">
-                    <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded shadow-lg">
-                    <p class="mt-1 text-[10px] truncate opacity-70">${i.title || i.name}</p>
-                </div>
-            `).join('')}</div>`;
+        // CARREGAMENTO DA HOME
+        async function init() {
+            const main = document.getElementById('main-content');
+            try {
+                const res = await fetch(`${BASE_URL}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
+                const data = await res.json();
+                const items = data.results;
+                const hero = items[0];
+
+                main.innerHTML = `
+                    <div class="relative h-[70vh] md:h-[85vh] w-full mb-4">
+                        <img src="https://image.tmdb.org/t/p/original${hero.backdrop_path}" class="absolute inset-0 w-full h-full object-cover shadow-2xl">
+                        <div class="absolute inset-0 hero-gradient flex flex-col justify-end p-6 md:p-16">
+                            <span class="text-red-600 font-black tracking-widest text-xs mb-2 uppercase">Em Destaque</span>
+                            <h2 class="text-4xl md:text-7xl font-black uppercase italic mb-6 leading-tight drop-shadow-2xl">
+                                ${hero.title || hero.name}
+                            </h2>
+                            <div class="flex gap-4">
+                                <button onclick="openPlayer('${hero.media_type}', ${hero.id}, '${hero.title || hero.name}')" 
+                                    class="bg-white text-black px-8 py-3 rounded-md font-bold flex items-center gap-2 hover:bg-zinc-200 transition-all scale-100 active:scale-95">
+                                    <i class="fas fa-play text-lg"></i> ASSISTIR
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-w-[1400px] mx-auto">
+                        <h3 class="px-4 md:px-0 text-xl font-bold mb-4 flex items-center gap-2">
+                            <span class="w-1 h-6 bg-red-600 rounded-full"></span> Tendências da Semana
+                        </h3>
+                        <div class="poster-grid">
+                            ${items.slice(1, 19).map(i => `
+                                <div onclick="openPlayer('${i.media_type}', ${i.id}, '${i.title || i.name}')" 
+                                    class="group cursor-pointer relative overflow-hidden rounded-md transition-transform duration-300 active:scale-95">
+                                    <div class="aspect-poster relative overflow-hidden rounded-md border border-white/5">
+                                        <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" 
+                                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy">
+                                    </div>
+                                    <p class="mt-2 text-[11px] font-bold truncate opacity-80 uppercase tracking-tighter">
+                                        ${i.title || i.name}
+                                    </p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <footer class="py-12 text-center text-zinc-600 text-xs font-bold">
+                        KUROMIFLIX &copy; 2024 - CONTEÚDO VIA API PÚBLICA
+                    </footer>
+                `;
+            } catch (e) {
+                main.innerHTML = `<div class="h-screen flex items-center justify-center text-red-600">Erro ao carregar catálogo. Verifique sua conexão.</div>`;
+            }
         }
 
-        loadHome();
+        init();
     </script>
 </body>
 </html>
