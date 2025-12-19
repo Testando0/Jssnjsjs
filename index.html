@@ -2,87 +2,102 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KUROMIFLIX</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; margin: 0; }
-        .grid-filmes { 
+        body { background: #000; color: #fff; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+        .grid-main { 
             display: grid; 
             grid-template-columns: repeat(2, 1fr); 
-            gap: 10px; 
-            padding: 10px; 
+            gap: 12px; 
+            padding: 15px; 
         }
-        @media (min-width: 768px) { .grid-filmes { grid-template-columns: repeat(6, 1fr); } }
-        iframe { width: 100%; height: 100%; border: none; }
+        @media (min-width: 768px) { .grid-main { grid-template-columns: repeat(6, 1fr); gap: 20px; } }
+        iframe { width: 100%; height: 100%; border: none; background: #000; }
+        .nav-fixed { background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body>
 
-    <nav class="fixed top-0 w-full z-50 bg-black p-4 border-b border-white/10 flex justify-between items-center">
-        <h1 class="text-red-600 text-2xl font-black cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
-        <input id="busca" type="text" placeholder="Pesquisar..." class="bg-zinc-800 border-none rounded px-4 py-1 text-sm outline-none">
+    <nav class="fixed top-0 w-full z-50 nav-fixed p-4 border-b border-white/10 flex justify-between items-center">
+        <h1 class="text-red-600 text-2xl font-black tracking-tighter cursor-pointer" onclick="location.reload()">KUROMIFLIX</h1>
+        <div class="relative w-1/2 max-w-md">
+            <input id="input-busca" type="text" placeholder="Buscar..." class="bg-zinc-800 w-full rounded-full px-4 py-1.5 text-sm outline-none border border-transparent focus:border-red-600">
+            <div id="lista-busca" class="absolute top-12 left-0 w-full bg-zinc-900 rounded-lg shadow-2xl hidden z-[60] max-h-[70vh] overflow-y-auto"></div>
+        </div>
     </nav>
 
-    <div id="resultados-busca" class="fixed top-16 left-0 w-full bg-zinc-900 z-[60] hidden overflow-y-auto max-h-screen"></div>
+    <main id="view-principal" class="pt-20"></main>
 
-    <main id="conteudo" class="pt-20"></main>
-
-    <div id="tela-player" class="fixed inset-0 z-[100] bg-black hidden flex-col">
-        <div class="p-4 bg-zinc-900 flex justify-between">
-            <button onclick="fecharPlayer()" class="bg-red-600 text-white px-6 py-2 rounded font-bold uppercase text-xs">Voltar ao Início</button>
+    <div id="modal-player" class="fixed inset-0 z-[100] bg-black hidden flex-col">
+        <div class="p-3 bg-zinc-900 border-b border-white/10 flex justify-between items-center">
+            <button onclick="fecharPlayer()" class="bg-red-600 text-white px-5 py-2 rounded font-bold text-xs uppercase transition active:scale-95">
+                Voltar
+            </button>
+            <span id="nome-video" class="text-[10px] text-zinc-400 font-bold uppercase truncate max-w-[180px]"></span>
         </div>
-        <div id="container-video" class="flex-grow"></div>
+        <div id="box-video" class="flex-grow"></div>
     </div>
 
     <script>
         const API_KEY = '8265bd1679663a7ea12ac168da84d2e8';
-        const campoBusca = document.getElementById('busca');
-        const divResultados = document.getElementById('resultados-busca');
+        const campo = document.getElementById('input-busca');
+        const lista = document.getElementById('lista-busca');
 
-        // BUSCA TMDB
-        campoBusca.oninput = async () => {
-            if (campoBusca.value.length < 3) { divResultados.classList.add('hidden'); return; }
-            const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&language=pt-BR&query=${campoBusca.value}`);
-            const data = await res.json();
-            divResultados.classList.remove('hidden');
-            divResultados.innerHTML = data.results.map(i => `
-                <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="p-4 border-b border-white/5 flex gap-4 cursor-pointer items-center bg-black hover:bg-zinc-800">
-                    <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10">
-                    <span class="font-bold">${i.title || i.name}</span>
-                </div>
-            `).join('');
+        // BUSCA DIRETA TMDB
+        campo.oninput = async () => {
+            const q = campo.value.trim();
+            if (q.length < 3) { lista.classList.add('hidden'); return; }
+            try {
+                const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(q)}`);
+                const d = await r.json();
+                lista.classList.remove('hidden');
+                lista.innerHTML = d.results.filter(i => i.poster_path).slice(0, 8).map(i => `
+                    <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id}, '${i.title || i.name}')" 
+                        class="p-3 border-b border-white/5 flex gap-4 cursor-pointer items-center hover:bg-zinc-800 transition">
+                        <img src="https://image.tmdb.org/t/p/w92${i.poster_path}" class="w-10 rounded">
+                        <span class="text-xs font-bold">${i.title || i.name}</span>
+                    </div>
+                `).join('');
+            } catch(e) { console.error(e); }
         };
 
-        function abrirPlayer(tipo, id) {
-            divResultados.classList.add('hidden');
-            campoBusca.value = '';
-            // URL LIMPA - Sem proxy lixo e sem sandbox para não bloquear a API deles
-            const url = `https://superflixapi.asia/${tipo}/${id}`;
-            document.getElementById('container-video').innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay; fullscreen"></iframe>`;
-            document.getElementById('tela-player').classList.remove('hidden');
-            document.getElementById('tela-player').classList.add('flex');
+        function abrirPlayer(t, id, nome) {
+            lista.classList.add('hidden');
+            campo.value = '';
+            document.getElementById('nome-video').innerText = nome;
+            // PLAYER DIRETO: Sem sandbox, sem proxy, sem travas.
+            const url = `https://superflixapi.asia/${t}/${id}`;
+            document.getElementById('box-video').innerHTML = `<iframe src="${url}" allowfullscreen allow="autoplay; fullscreen"></iframe>`;
+            document.getElementById('modal-player').classList.remove('hidden');
+            document.getElementById('modal-player').classList.add('flex');
             document.body.style.overflow = 'hidden';
         }
 
         function fecharPlayer() {
-            document.getElementById('container-video').innerHTML = '';
-            document.getElementById('tela-player').classList.add('hidden');
+            document.getElementById('box-video').innerHTML = '';
+            document.getElementById('modal-player').classList.add('hidden');
             document.body.style.overflow = 'auto';
         }
 
-        async function carregarHome() {
-            const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
-            const data = await res.json();
-            document.getElementById('conteudo').innerHTML = `<div class="grid-filmes">${data.results.map(i => `
-                <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id})" class="cursor-pointer hover:scale-105 transition">
-                    <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded shadow-lg">
-                    <p class="mt-2 text-[11px] font-bold truncate opacity-80 uppercase">${i.title || i.name}</p>
-                </div>
-            `).join('')}</div>`;
+        async function init() {
+            try {
+                const r = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
+                const d = await r.json();
+                document.getElementById('view-principal').innerHTML = `
+                    <div class="grid-main">
+                        ${d.results.map(i => `
+                            <div onclick="abrirPlayer('${i.media_type === 'tv' ? 'tv' : 'movie'}', ${i.id}, '${i.title || i.name}')" class="cursor-pointer group">
+                                <img src="https://image.tmdb.org/t/p/w500${i.poster_path}" class="rounded-lg shadow-lg group-active:scale-95 transition">
+                                <p class="mt-2 text-[10px] font-bold truncate opacity-70 uppercase">${i.title || i.name}</p>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            } catch(e) { console.error(e); }
         }
 
-        carregarHome();
+        init();
     </script>
 </body>
 </html>
